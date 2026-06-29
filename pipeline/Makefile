@@ -5,7 +5,8 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup run dry-run \
         run-bird run-bug run-botanical \
-        auth-tiktok \
+        auth-tiktok auth-tiktok-save \
+        auth-instagram auth-instagram-refresh \
         test test-full \
         eval eval-fast eval-save \
         clean
@@ -47,6 +48,12 @@ auth-tiktok:     ## Run TikTok OAuth login flow and print access token
 
 auth-tiktok-save: ## Run TikTok OAuth login flow and save token to .env
 	$(RUN) python tiktok_auth.py --save-env
+
+auth-instagram:  ## Exchange a short-lived IG token for a 60-day long-lived token
+	$(RUN) python instagram_auth.py --exchange
+
+auth-instagram-refresh: ## Refresh an existing long-lived IG token (run before 60-day expiry)
+	$(RUN) python instagram_auth.py --refresh
 
 # ── Evals ──────────────────────────────────────────────────────────────────────
 

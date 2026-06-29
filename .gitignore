@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Pipeline output
+output/
+# Pipeline eval fixture (generated, not source)
+pipeline/data/eval_fixture.json
