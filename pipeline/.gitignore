@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.venv/
+venv/
+
+# Pipeline output (generated content, not source)
+output/
+
+# Environment / secrets
+.env
+*.env
+
+# OS
+.DS_Store

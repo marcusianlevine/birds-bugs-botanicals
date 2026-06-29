@@ -1,0 +1,19 @@
+{
+  "base": [
+    "#nature", "#wildlife", "#naturephotography", "#wildlifephotography",
+    "#natgeo", "#BBBdaily", "#BirdsBugsBotanicals", "#getoutside",
+    "#naturalworld", "#earthpix"
+  ],
+  "bird": [
+    "#bird", "#birds", "#birb", "#birdwatching", "#birding",
+    "#birdphotography", "#birdlovers", "#ornithology", "#avilife", "#feathers"
+  ],
+  "bug": [
+    "#bug", "#bugs", "#insect", "#insects", "#entomology",
+    "#bugphotography", "#macrophotography", "#macro", "#creepycrawly", "#bugsofinstagram"
+  ],
+  "botanical": [
+    "#plants", "#botanicals", "#botany", "#herbalism", "#plantlife",
+    "#plantphotography", "#herbs", "#plantsofinstagram", "#greenthumb", "#botanicalgarden"
+  ]
+}

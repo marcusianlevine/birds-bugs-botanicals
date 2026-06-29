@@ -1,0 +1,45 @@
+{
+  "bird": [
+    "Northern Cardinal", "Ruby-throated Hummingbird", "Bald Eagle", "Peregrine Falcon",
+    "Great Horned Owl", "Snowy Owl", "Atlantic Puffin", "Blue Jay", "Painted Bunting",
+    "Resplendent Quetzal", "Flamingo", "Mandarin Duck", "Kingfisher", "Roseate Spoonbill",
+    "Superb Bird-of-Paradise", "Victoria's Riflebird", "Golden Pheasant", "Lilac-breasted Roller",
+    "Keel-billed Toucan", "Scarlet Macaw", "Bee Hummingbird", "Secretary Bird",
+    "Shoebill", "Andean Condor", "Great Blue Heron", "Wood Duck", "Bohemian Waxwing",
+    "Cedar Waxwing", "Indigo Bunting", "American Goldfinch", "Barn Swallow",
+    "Purple Martin", "Chimney Swift", "Black-throated Blue Warbler", "Prothonotary Warbler",
+    "Cerulean Warbler", "Hooded Warbler", "Scissor-tailed Flycatcher", "Vermilion Flycatcher",
+    "Pyrrhuloxia", "Anna's Hummingbird", "Costa's Hummingbird", "Calliope Hummingbird",
+    "Broad-tailed Hummingbird", "White-throated Magpie-Jay", "Elegant Trogon",
+    "Eared Quetzal", "Blue-footed Booby", "Magnificent Frigatebird", "Brown Pelican"
+  ],
+  "bug": [
+    "Monarch Butterfly", "Luna Moth", "Atlas Moth", "Blue Morpho Butterfly",
+    "Praying Mantis", "Orchid Mantis", "Jewel Beetle", "Golden Tortoise Beetle",
+    "Firefly", "Lanternfly", "Walking Stick", "Leaf Insect", "Giant Silk Moth",
+    "Io Moth", "Polyphemus Moth", "Cecropia Moth", "Death's-head Hawkmoth",
+    "Hummingbird Hawk-moth", "Glasswing Butterfly",
+    "Painted Lady Butterfly", "Swallowtail Butterfly", "Zebra Swallowtail",
+    "Giant Swallowtail", "Pipevine Swallowtail", "Spicebush Swallowtail",
+    "Twelve-spotted Skimmer", "Halloween Pennant Dragonfly", "Ebony Jewelwing Damselfly",
+    "American Rubyspot Damselfly", "Eastern Pondhawk", "Blue Dasher",
+    "Bombardier Beetle", "Violin Beetle", "Minotaur Beetle", "Rainbow Scarab",
+    "Dogbane Beetle", "Six-spotted Tiger Beetle", "Flower Longhorn Beetle",
+    "Harlequin Bug", "Jagged Ambush Bug", "Thorn Bug", "Treehopper",
+    "Peanut-head Bug", "Wheel Bug", "Assassin Bug", "Milkweed Bug",
+    "Tarantula Hawk", "Cicada", "Periodical Cicada"
+  ],
+  "botanical": [
+    "Lavender", "Echinacea", "Chamomile", "Aloe Vera", "Ginger", "Turmeric",
+    "Rosemary", "Witch Hazel", "Elderberry", "Dandelion", "Valerian",
+    "St. John's Wort", "Passionflower", "Lemon Balm", "Peppermint",
+    "Spearmint", "Calendula", "Arnica", "Feverfew", "Milk Thistle",
+    "Black Cohosh", "Ginkgo", "Ginseng", "Ashwagandha", "Holy Basil",
+    "Yarrow", "Plantain", "Nettle", "Red Clover", "Meadowsweet",
+    "Marshmallow Root", "Slippery Elm", "Comfrey", "Burdock Root",
+    "Astragalus", "Rhodiola", "Siberian Ginseng", "Hawthorn", "Motherwort",
+    "Skullcap", "Hops", "Kava Kava", "Lemon Verbena", "Bergamot",
+    "Evening Primrose", "Borage", "Cleavers", "Wood Betony", "Mugwort",
+    "California Poppy"
+  ]
+}

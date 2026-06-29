@@ -1,0 +1,39 @@
+{
+  "_instructions": "Add your own real posts here as golden reference examples. The evals use these to judge tone and style alignment. Add as many as you like per category — more examples = better calibration.",
+  "instagram": [
+    {
+      "category": "bird",
+      "species": "Northern Cardinal",
+      "caption": "There's a reason people stop mid-sentence when a male Cardinal lands nearby.\n\nThat shock of crimson isn't just beautiful — it's a biological statement. Males grow more intensely red in winter, when females are most actively choosing mates. The redder the bird, the better the provider. It's vanity with evolutionary purpose.\n\nWhat most people don't know is that Cardinals are one of the few songbirds where the female sings too. You might hear her calling from the nest, a soft metallic chip that her mate learns to recognise as his alone.\n\nThey're also fiercely loyal to a place, not just a partner. A Cardinal pair may hold the same half-acre of yard for their entire lives — raising clutch after clutch of chicks in the same hedgerow while you go about your seasons.\n\nNext time one lands in your garden, look closely at the crest. If it's raised, something has its attention. If it's flat, it's relaxed. You're being trusted.\n\nHave you spotted a Cardinal in your yard this week? Tell us below 👇\n\n#nature #wildlife #naturephotography #wildlifephotography #natgeo #BBBdaily #BirdsBugsBotanicals #getoutside #naturalworld #earthpix #bird #birds #birb #birdwatching #birding #birdphotography #birdlovers #ornithology #avilife #feathers #NorthernCardinal #cardinal #backyard #backyardbirds #redbird",
+      "notes": "Good example: punchy open, layered facts woven naturally, intimate 'you' tone at the end, strong CTA before hashtags"
+    },
+    {
+      "category": "bug",
+      "species": "Firefly",
+      "caption": "On warm June evenings, something ancient is happening in the tall grass.\n\nFireflies — also called lightning bugs — produce one of nature's most efficient light sources. Their bioluminescence converts nearly 100% of energy into light with almost no heat, a feat our best LED bulbs still can't match. Scientists call it 'cold light.' We just call it magic.\n\nEach species flashes its own private code. Males signal from the air; females respond from the grass below. Some flash in perfect synchrony — entire forests of them pulsing together like a single heartbeat. In the Great Smoky Mountains, thousands gather each year to do exactly this, and people travel from around the world just to watch.\n\nBut here's the part that should make us pay attention: firefly populations are declining in many regions, hit hard by light pollution, habitat loss, and pesticide use. The nights are getting quieter.\n\nIf you have a garden, turn off the outdoor lights for a single evening this summer. You might be surprised who shows up.\n\nDo you still get fireflies where you live? Let us know in the comments 👇\n\n#nature #wildlife #naturephotography #wildlifephotography #natgeo #BBBdaily #BirdsBugsBotanicals #getoutside #naturalworld #earthpix #bug #bugs #insect #insects #entomology #bugphotography #macrophotography #macro #creepycrawly #bugsofinstagram #firefly #lightningbug #bioluminescence #summerevening #nightnature",
+      "notes": "Good example: opens with scene-setting, escalates to conservation angle, ends with concrete actionable CTA"
+    },
+    {
+      "category": "botanical",
+      "species": "Lavender",
+      "caption": "Long before it was a candle scent or a face cream, lavender was a medicine chest.\n\nRomans added it to their bathwater — the name comes from the Latin lavare, 'to wash.' Medieval healers tucked it into plague masks, believing its scent could ward off disease. They were onto something: lavender's essential oil contains linalool and linalyl acetate, compounds with genuine antimicrobial and calming properties backed by modern research.\n\nAs a botanical, lavender has earned its place twice over. Herbalists use it for anxiety, insomnia, and tension headaches. Apiculturists plant whole fields of it because its nectar produces some of the most prized honey in the world. And in Provence, France, entire economies were built around its annual bloom.\n\nWhat most people miss is how long a single plant lives. A well-tended lavender can thrive for decades — the same woody shrub filling your garden with scent summer after summer, getting better with age.\n\nDo you grow lavender? Drop a photo in the comments — we'd love to see it 🌿👇\n\n#nature #wildlife #naturephotography #wildlifephotography #natgeo #BBBdaily #BirdsBugsBotanicals #getoutside #naturalworld #earthpix #plants #botanicals #botany #herbalism #plantlife #plantphotography #herbs #plantsofinstagram #greenthumb #botanicalgarden #lavender #herbgarden #aromatherapy #provencelavender #herbalmedicine",
+      "notes": "Good example: historical hook, layered uses (medicinal, agricultural, economic), specific sensory detail, CTA invites personal connection"
+    }
+  ],
+  "tiktok": [
+    {
+      "category": "bird",
+      "species": "Northern Cardinal",
+      "voiceover": "That flash of red you just spotted? It's a Northern Cardinal — and the redder he is, the better a father he'll be. While she incubates the eggs, he brings her food, every single hour. He's basically the world's most dedicated delivery driver.",
+      "caption": "The redder the Cardinal, the better the dad 🔴 Nature's most devoted partner, hiding in plain sight in your backyard.\n\n#nature #wildlife #BBBdaily #BirdsBugsBotanicals #bird #birds #birb #birdwatching #birding #cardinal #backyardbirds #funfacts",
+      "notes": "Good TikTok example: opens mid-observation, punchy analogy, ends on a surprising fact"
+    },
+    {
+      "category": "bug",
+      "species": "Firefly",
+      "voiceover": "What you're watching is nearly perfect light — fireflies convert 96% of their energy into glow with almost zero heat. Every flash is a private love letter, written in a code only one other creature on earth can read.",
+      "caption": "96% efficiency. No heat. Just light 🌟 Fireflies are nature's engineers — and their numbers are falling. Turn off a light this summer for them.\n\n#nature #wildlife #BBBdaily #BirdsBugsBotanicals #bug #bugs #firefly #bioluminescence #macro #insect #entomology #nightnature",
+      "notes": "Good TikTok example: stat opens with wonder, poetic second sentence, conservation message woven in naturally"
+    }
+  ]
+}
