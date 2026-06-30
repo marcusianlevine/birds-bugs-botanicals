@@ -27,18 +27,15 @@ OLLAMA_API_KEY   = _require("OLLAMA_API_KEY")
 OLLAMA_BASE_URL  = _optional("OLLAMA_BASE_URL", "https://api.ollama.com/v1")
 OLLAMA_MODEL     = _optional("OLLAMA_MODEL", "llama3.3")
 
-# ── Kling AI ───────────────────────────────────────────────────────────────────
-KLING_API_KEY       = _require("KLING_API_KEY")
-# KLING_API_SECRET is no longer used — Kling migrated to simple Bearer token auth
-# in June 2026. Kept here as optional in case you need the legacy JWT flow.
-KLING_API_SECRET    = _optional("KLING_API_SECRET")
-# International endpoint (non-China). Override via KLING_BASE_URL if needed.
-KLING_BASE_URL      = _optional("KLING_BASE_URL", "https://api-singapore.klingai.com")
+# ── WaveSpeed AI ──────────────────────────────────────────────────────────────
+# Get your API key at https://wavespeed.ai/settings/api-keys
+# The SDK reads WAVESPEED_API_KEY automatically from the environment.
+WAVESPEED_API_KEY = _require("WAVESPEED_API_KEY")
 
 # ── Instagram Graph API ────────────────────────────────────────────────────────
 INSTAGRAM_ACCESS_TOKEN = _require("INSTAGRAM_ACCESS_TOKEN")
 INSTAGRAM_ACCOUNT_ID   = _require("INSTAGRAM_ACCOUNT_ID")
-INSTAGRAM_GRAPH_URL    = "https://graph.instagram.com/v21.0"
+INSTAGRAM_GRAPH_URL    = "https://graph.facebook.com/v21.0"
 
 # ── TikTok ─────────────────────────────────────────────────────────────────────
 TIKTOK_ACCESS_TOKEN  = _require("TIKTOK_ACCESS_TOKEN")
@@ -56,11 +53,14 @@ DATA_DIR   = Path(__file__).parent / "data"
 # History file – tracks every species ever posted to avoid repeats
 HISTORY_FILE = DATA_DIR / "posted_history.json"
 
-# Kling video settings
-KLING_VIDEO_DURATION = 5          # seconds (5 or 10)
-KLING_VIDEO_RATIO    = "9:16"     # portrait for TikTok/Reels
-KLING_POLL_INTERVAL  = 15         # seconds between status polls
-KLING_POLL_TIMEOUT   = 600        # give up after 10 minutes
+# WaveSpeed video settings
+# Model — wan-2.1 is the documented image-to-video model; swap to a newer
+# wavespeed-ai/* model string here without touching any other code.
+WAVESPEED_MODEL          = _optional("WAVESPEED_MODEL", "alibaba/wan-2.7/image-to-video")
+WAVESPEED_VIDEO_RESOLUTION = _optional("WAVESPEED_VIDEO_RESOLUTION", "720p")  # 720p or 1080p
+WAVESPEED_VIDEO_DURATION = int(_optional("WAVESPEED_VIDEO_DURATION", "5"))
+WAVESPEED_POLL_INTERVAL  = float(_optional("WAVESPEED_POLL_INTERVAL", "3.0"))
+WAVESPEED_TIMEOUT        = int(_optional("WAVESPEED_TIMEOUT", "600"))
 
 # iNaturalist quality grade for photo sourcing
 INATURALIST_QUALITY  = "research"

@@ -26,8 +26,11 @@ setup:           ## Create .venv and install all dependencies
 
 # ── Pipeline ───────────────────────────────────────────────────────────────────
 
-dry-run:         ## Generate content for a random species — no posting
+dry-run:         ## Generate content + captions only (no video, no posting) — fast
 	$(RUN) python main.py --dry-run
+
+generate:        ## Generate everything including Kling video — no posting
+	$(RUN) python main.py --no-post
 
 run:             ## Run the full pipeline — generate + post to Instagram & TikTok
 	$(RUN) python main.py

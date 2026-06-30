@@ -10,10 +10,13 @@ Run for a specific category:
   python main.py --category bug
   python main.py --category botanical
 
-Dry run (skip posting to social media):
+Generate everything (including Kling video) but skip posting:
+  python main.py --no-post
+
+Dry run (skip video generation AND posting — fast, cheap):
   python main.py --dry-run
 
-Everything is saved to output/<YYYY-MM-DD>/ regardless of --dry-run.
+Everything is saved to output/<YYYY-MM-DD>/ regardless of mode.
 """
 
 import argparse
@@ -143,7 +146,7 @@ def _format_research(r: ResearchResult) -> str:
 
 # ── Main pipeline ──────────────────────────────────────────────────────────────
 
-def run(category: str | None = None, dry_run: bool = False) -> None:
+def run(category: str | None = None, dry_run: bool = False, no_post: bool = False) -> None:
     out_dir = make_output_dir()
     log.info("Output directory: %s", out_dir)
 
@@ -212,7 +215,7 @@ def run(category: str | None = None, dry_run: bool = False) -> None:
             video_path = None
 
     # ── 6. Post to Instagram (pass iNaturalist URL directly) ──────────────────
-    if not dry_run:
+    if not dry_run and not no_post:
         try:
             ig_media_id = post_instagram_photo(
                 image_url=image_url,
@@ -226,7 +229,7 @@ def run(category: str | None = None, dry_run: bool = False) -> None:
             posting_result["instagram"] = {"status": "failed", "error": str(e)}
 
     # ── 7. Post to TikTok (direct chunk-upload from local file) ───────────────
-    if not dry_run:
+    if not dry_run and not no_post:
         if video_path and video_path.exists():
             try:
                 tt_publish_id = post_tiktok_video(
@@ -252,7 +255,7 @@ def run(category: str | None = None, dry_run: bool = False) -> None:
     save_outputs(out_dir, selection, result, content, posting_result)
 
     # ── 9. Mark as posted (only if at least one platform succeeded) ────────────
-    if not dry_run:
+    if not dry_run and not no_post:
         statuses = {k: v.get("status") for k, v in posting_result.items()}
         if any(s == "posted" for s in statuses.values()):
             mark_posted(selection)
@@ -263,7 +266,9 @@ def run(category: str | None = None, dry_run: bool = False) -> None:
     log.info("  Organism : %s (%s)", selection.common_name, result.scientific_name or "unknown")
     log.info("  Category : %s", selection.category)
     if dry_run:
-        log.info("  Mode     : DRY RUN – nothing posted")
+        log.info("  Mode     : DRY RUN – nothing posted, no video generated")
+    elif no_post:
+        log.info("  Mode     : NO-POST – video generated, nothing posted")
     else:
         for platform, res in posting_result.items():
             log.info("  %-12s: %s", platform.capitalize(), res.get("status", "?"))
@@ -286,8 +291,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Generate content but skip posting to social media",
+        help="Skip video generation AND posting (fast, cheap — for testing copy)",
+    )
+    parser.add_argument(
+        "--no-post",
+        action="store_true",
+        help="Generate everything including Kling video, but skip posting",
     )
     args = parser.parse_args()
 
-    run(category=args.category, dry_run=args.dry_run)
+    run(category=args.category, dry_run=args.dry_run, no_post=args.no_post)
