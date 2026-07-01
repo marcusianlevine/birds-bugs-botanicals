@@ -1,3 +1,7 @@
+# Node / Astro (site/)
+node_modules/
+.astro/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -163,9 +167,6 @@ venv.bak/
 
 # Rope project settings
 .ropeproject
-
-# mkdocs documentation
-/site
 
 # mypy
 .mypy_cache/

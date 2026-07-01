@@ -1,0 +1,32 @@
+---
+const base = import.meta.env.BASE_URL;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Birds, Bugs &amp; Botanicals</title>
+  <style>
+    body {
+      font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.6;
+      color: #222;
+    }
+    a { color: #2a6f3f; }
+    ul { padding-left: 1.2em; }
+    li { margin: 0.5em 0; }
+  </style>
+</head>
+<body>
+  <h1>Birds, Bugs &amp; Botanicals</h1>
+  <p>Daily nature photos, facts, and videos, accompanied by soothing soundscapes.</p>
+  <ul>
+    <li><a href={`${base}terms-of-service/`}>Terms of Service</a></li>
+    <li><a href={`${base}privacy-policy/`}>Privacy Policy</a></li>
+  </ul>
+</body>
+</html>
