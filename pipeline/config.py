@@ -66,6 +66,23 @@ WAVESPEED_TIMEOUT        = int(_optional("WAVESPEED_TIMEOUT", "600"))
 INATURALIST_QUALITY  = "research"
 INATURALIST_PER_PAGE = 10
 
+# ── Image review (vision LLM) ──────────────────────────────────────────────────
+# An LLM inspects each candidate photo and rejects any that isn't a clear,
+# high-quality image with the organism clearly visible. Candidates are tried in
+# source order (Wikipedia → iNaturalist → eBird) until one is approved.
+IMAGE_REVIEW_ENABLED = _optional("IMAGE_REVIEW_ENABLED", "true").lower() == "true"
+# Vision-capable model served by the OpenAI-compatible endpoint. Must accept
+# image input (e.g. "llama3.2-vision"); defaults to the main model.
+VISION_MODEL = _optional("VISION_MODEL", OLLAMA_MODEL)
+# Cap how many candidates we spend a vision call on before giving up.
+IMAGE_REVIEW_MAX_CANDIDATES = int(_optional("IMAGE_REVIEW_MAX_CANDIDATES", "6"))
+# Minimum score (1-10) for a photo to be approved.
+IMAGE_REVIEW_MIN_SCORE = int(_optional("IMAGE_REVIEW_MIN_SCORE", "7"))
+
+# Retry settings for image downloads (exponential backoff on transient errors).
+IMAGE_PULL_MAX_ATTEMPTS  = int(_optional("IMAGE_PULL_MAX_ATTEMPTS", "3"))
+IMAGE_PULL_BACKOFF_BASE  = float(_optional("IMAGE_PULL_BACKOFF_BASE", "1.0"))
+
 # Categories and their daily probability weights
 CATEGORIES = ["bird", "bug", "botanical"]
 CATEGORY_WEIGHTS = [0.35, 0.35, 0.30]    # slight bias away from botanicals

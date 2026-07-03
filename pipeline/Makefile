@@ -3,8 +3,7 @@
 # On Windows: run from Git Bash or WSL
 
 .DEFAULT_GOAL := help
-.PHONY: help setup run dry-run \
-        run-bird run-bug run-botanical \
+.PHONY: help setup run dry-run generate \
         auth-tiktok auth-tiktok-save \
         auth-instagram auth-instagram-refresh \
         test test-full \
@@ -14,6 +13,17 @@
 # uv run automatically uses the .venv created by `make setup`
 UV  := uv
 RUN := uv run
+
+# Optional overrides for run / generate / dry-run:
+#   make run          SPECIES="Barn Owl"
+#   make dry-run      CATEGORY=bird
+#   make generate     SPECIES="Foxglove" CATEGORY=botanical
+# SPECIES forces a specific organism; CATEGORY forces a category (and is only
+# required when SPECIES isn't in the built-in pools, so its category can't be
+# inferred). Either, both, or neither may be set.
+SPECIES  ?=
+CATEGORY ?=
+FEATURE_OPTS := $(if $(SPECIES),--species "$(SPECIES)",) $(if $(CATEGORY),--category "$(CATEGORY)",)
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
 
@@ -26,23 +36,14 @@ setup:           ## Create .venv and install all dependencies
 
 # ── Pipeline ───────────────────────────────────────────────────────────────────
 
-dry-run:         ## Generate content + captions only (no video, no posting) — fast
-	$(RUN) python main.py --dry-run
+dry-run:         ## Generate content + captions only (no video, no posting) — fast. Optional: SPECIES=, CATEGORY=
+	$(RUN) python main.py --dry-run $(FEATURE_OPTS)
 
-generate:        ## Generate everything including Kling video — no posting
-	$(RUN) python main.py --no-post
+generate:        ## Generate everything including Kling video — no posting. Optional: SPECIES=, CATEGORY=
+	$(RUN) python main.py --no-post $(FEATURE_OPTS)
 
-run:             ## Run the full pipeline — generate + post to Instagram & TikTok
-	$(RUN) python main.py
-
-run-bird:        ## Force today's feature to be a bird
-	$(RUN) python main.py --category bird
-
-run-bug:         ## Force today's feature to be a bug
-	$(RUN) python main.py --category bug
-
-run-botanical:   ## Force today's feature to be a botanical
-	$(RUN) python main.py --category botanical
+run:             ## Run the full pipeline — generate + post to Instagram & TikTok. Optional: SPECIES=, CATEGORY=
+	$(RUN) python main.py $(FEATURE_OPTS)
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
@@ -92,6 +93,10 @@ help:
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  make %-18s %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Feature a specific organism:"
+	@echo "  make dry-run SPECIES=\"Barn Owl\"     (test copy for one species)"
+	@echo "  make run CATEGORY=bird               (post a random bird)"
 	@echo ""
 	@echo "Typical first-time setup:"
 	@echo "  1. make setup"

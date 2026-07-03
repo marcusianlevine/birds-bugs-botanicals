@@ -1,19 +1,16 @@
 {
   "base": [
     "#nature", "#wildlife", "#naturephotography", "#wildlifephotography",
-    "#natgeo", "#BBBdaily", "#BirdsBugsBotanicals", "#getoutside",
-    "#naturalworld", "#earthpix"
+    "#BirdsBugsBotanicals", "#getoutside", "#naturalworld"
   ],
   "bird": [
     "#bird", "#birds", "#birb", "#birdwatching", "#birding",
-    "#birdphotography", "#birdlovers", "#ornithology", "#avilife", "#feathers"
+    "#birdlovers", "#ornithology", "#feathers"
   ],
   "bug": [
-    "#bug", "#bugs", "#insect", "#insects", "#entomology",
-    "#bugphotography", "#macrophotography", "#macro", "#creepycrawly", "#bugsofinstagram"
+    "#bug", "#bugs", "#insect", "#insects", "#entomology", "#bugphotography"
   ],
   "botanical": [
-    "#plants", "#botanicals", "#botany", "#herbalism", "#plantlife",
-    "#plantphotography", "#herbs", "#plantsofinstagram", "#greenthumb", "#botanicalgarden"
+    "#plants", "#botanicals", "#botany", "#herbalism", "#plantlife", "#plantphotography"
   ]
 }

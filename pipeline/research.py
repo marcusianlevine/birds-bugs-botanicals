@@ -17,6 +17,7 @@ import requests
 import wikipediaapi
 
 import config
+from net import get_with_retry
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class Photo:
     url: str            # full-size URL
     thumb_url: str      # small thumbnail
     attribution: str    # photographer credit
-    source: str         # "iNaturalist" | "Wikipedia"
+    source: str         # "Wikipedia" | "iNaturalist" | "eBird"
 
 
 @dataclass
@@ -92,6 +93,9 @@ def _get_wikipedia(common_name: str, category: str) -> dict:
     # Pull a few interesting sentences from non-lead sections for fun facts
     fun_facts = _extract_fun_facts(page)
 
+    # Lead image (the reviewer tries this before other databases)
+    image_url, thumb_url = _get_wikipedia_image(page.title)
+
     return {
         "summary": page.summary[:1500],   # first ~1500 chars
         "url": page.fullurl,
@@ -99,7 +103,58 @@ def _get_wikipedia(common_name: str, category: str) -> dict:
         "scientific_name": sci_name,
         "conservation_status": conservation,
         "fun_facts": fun_facts,
+        "image_url": image_url,
+        "thumb_url": thumb_url,
     }
+
+
+def _get_wikipedia_image(title: str) -> tuple[str, str]:
+    """
+    Fetch the lead image for a Wikipedia page via the MediaWiki Action API
+    (prop=pageimages). Returns (original_url, thumbnail_url); either may be ""
+    if none exists.
+
+    Note: we deliberately use the Action API (w/api.php) rather than the REST
+    summary endpoint (/api/rest_v1/page/summary/), which now returns 403
+    Forbidden for automated clients. The Action API accepts the same
+    User-Agent the rest of our Wikipedia access already uses.
+    """
+    if not title:
+        return "", ""
+
+    params = {
+        "action": "query",
+        "format": "json",
+        "formatversion": 2,
+        "prop": "pageimages",
+        "piprop": "original|thumbnail",
+        "pithumbsize": 800,
+        "titles": title,
+        "redirects": 1,
+    }
+    try:
+        resp = get_with_retry(
+            "https://en.wikipedia.org/w/api.php",
+            params=params,
+            headers={"User-Agent": WIKI_USER_AGENT},
+            timeout=10,
+        )
+        data = resp.json()
+    except (requests.RequestException, ValueError) as e:
+        log.warning("Wikipedia image lookup failed for '%s': %s", title, e)
+        return "", ""
+
+    pages = data.get("query", {}).get("pages", [])
+    # formatversion=2 returns a list; older format returns a dict keyed by pageid.
+    if isinstance(pages, dict):
+        pages = list(pages.values())
+    if not pages:
+        return "", ""
+
+    page = pages[0]
+    original = (page.get("original") or {}).get("source", "")
+    thumb = (page.get("thumbnail") or {}).get("source", "")
+    return original, (thumb or original)
 
 
 def _extract_scientific_name(text: str) -> str:
@@ -166,8 +221,7 @@ def _get_inaturalist(common_name: str, category: str) -> dict:
         params["iconic_taxa"] = iconic
 
     try:
-        resp = requests.get(f"{INATURALIST_BASE}/taxa", params=params, timeout=15)
-        resp.raise_for_status()
+        resp = get_with_retry(f"{INATURALIST_BASE}/taxa", params=params, timeout=15)
         results = resp.json().get("results", [])
     except requests.RequestException as e:
         log.warning("iNaturalist taxa search failed: %s", e)
@@ -191,10 +245,9 @@ def _get_inaturalist(common_name: str, category: str) -> dict:
         "order_by": "votes",
     }
     try:
-        obs_resp = requests.get(
+        obs_resp = get_with_retry(
             f"{INATURALIST_BASE}/observations", params=obs_params, timeout=15
         )
-        obs_resp.raise_for_status()
         observations = obs_resp.json().get("results", [])
     except requests.RequestException as e:
         log.warning("iNaturalist observations failed: %s", e)
@@ -240,19 +293,65 @@ def _get_ebird_info(scientific_name: str) -> dict:
         return {}
     headers = {"X-eBirdApiToken": config.EBIRD_API_KEY}
     try:
-        resp = requests.get(
+        resp = get_with_retry(
             f"{EBIRD_BASE}/ref/taxonomy/ebird",
             params={"fmt": "json", "species": scientific_name},
             headers=headers,
             timeout=10,
         )
-        resp.raise_for_status()
         data = resp.json()
         if data:
             return {"species_code": data[0].get("speciesCode", "")}
     except requests.RequestException as e:
         log.warning("eBird lookup failed: %s", e)
     return {}
+
+
+def _get_ebird_photos(species_code: str, limit: int = 5) -> list[Photo]:
+    """
+    Fetch top-rated photos for a bird from the Macaulay Library (the media
+    archive behind eBird). Best-effort: returns [] on any failure.
+    """
+    if not species_code:
+        return []
+
+    params = {
+        "taxonCode": species_code,
+        "mediaType": "photo",
+        "sort": "rating_rank_desc",
+        "count": limit,
+    }
+    try:
+        resp = get_with_retry(
+            "https://search.macaulaylibrary.org/api/v2/search",
+            params=params,
+            timeout=15,
+        )
+        results = resp.json().get("results", {}).get("content", [])
+    except (requests.RequestException, ValueError) as e:
+        log.warning("eBird/Macaulay photo search failed: %s", e)
+        return []
+
+    photos: list[Photo] = []
+    for item in results:
+        asset_id = item.get("assetId")
+        if not asset_id:
+            continue
+        # Macaulay CDN sizes: 320/480/900/1200/2400 (px on longest side)
+        url = f"https://cdn.download.ams.birds.cornell.edu/api/v2/asset/{asset_id}/1200"
+        thumb = f"https://cdn.download.ams.birds.cornell.edu/api/v2/asset/{asset_id}/480"
+        photographer = item.get("userDisplayName", "")
+        attribution = (
+            f"© {photographer} / Macaulay Library" if photographer
+            else "© Macaulay Library"
+        )
+        photos.append(Photo(
+            url=url,
+            thumb_url=thumb,
+            attribution=attribution,
+            source="eBird",
+        ))
+    return photos
 
 
 # ── Botanical validation ───────────────────────────────────────────────────────
@@ -294,10 +393,31 @@ def research(category: str, common_name: str) -> Optional[ResearchResult]:
     # 4. eBird (birds only)
     sci_name = inat_data.get("scientific_name") or wiki_data.get("scientific_name", "")
     ebird_data = {}
+    ebird_photos: list[Photo] = []
     if category == "bird" and sci_name:
         ebird_data = _get_ebird_info(sci_name)
+        ebird_photos = _get_ebird_photos(ebird_data.get("species_code", ""))
 
-    # 5. Assemble result
+    # 5. Assemble candidate photos in reviewer-preference order:
+    #    Wikipedia first, then iNaturalist, then eBird/Macaulay.
+    photos: list[Photo] = []
+    if wiki_data.get("image_url"):
+        photos.append(Photo(
+            url=wiki_data["image_url"],
+            thumb_url=wiki_data.get("thumb_url", wiki_data["image_url"]),
+            attribution="Wikimedia Commons (via Wikipedia)",
+            source="Wikipedia",
+        ))
+    photos.extend(inat_data.get("photos", []))
+    photos.extend(ebird_photos)
+    log.info(
+        "Candidate photos for '%s': %d (%s)",
+        common_name,
+        len(photos),
+        ", ".join(sorted({p.source for p in photos})) or "none",
+    )
+
+    # 6. Assemble result
     return ResearchResult(
         category=category,
         common_name=common_name,
@@ -306,7 +426,7 @@ def research(category: str, common_name: str) -> Optional[ResearchResult]:
         wikipedia_url=wiki_data.get("url", ""),
         uses_section=wiki_data.get("uses_section", ""),
         fun_facts=wiki_data.get("fun_facts", []),
-        photos=inat_data.get("photos", []),
+        photos=photos,
         range_description=inat_data.get("range_description", ""),
         conservation_status=wiki_data.get("conservation_status", ""),
         taxon_id=inat_data.get("taxon_id"),

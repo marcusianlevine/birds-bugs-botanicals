@@ -30,8 +30,10 @@ from pathlib import Path
 import requests
 
 import config
-from species_selector import pick_today, mark_posted, SpeciesSelection
+from net import get_with_retry
+from species_selector import pick_today, pick_named, mark_posted, SpeciesSelection
 from research import research, ResearchResult
+from image_reviewer import select_best_photo
 from content_generator import generate_content, GeneratedContent
 from video_generator import generate_video
 from social_media import (
@@ -64,8 +66,13 @@ def make_output_dir() -> Path:
 def download_image(url: str, dest: Path) -> Path:
     """Download an image from a URL to a local path. Returns the dest path."""
     log.info("Downloading image: %s", url)
-    resp = requests.get(url, timeout=30, stream=True)
-    resp.raise_for_status()
+    resp = get_with_retry(
+        url,
+        timeout=30,
+        stream=True,
+        max_attempts=config.IMAGE_PULL_MAX_ATTEMPTS,
+        backoff_base=config.IMAGE_PULL_BACKOFF_BASE,
+    )
 
     # Determine extension from content-type
     ct = resp.headers.get("content-type", "image/jpeg")
@@ -88,8 +95,18 @@ def save_outputs(
     result: ResearchResult,
     content: GeneratedContent,
     posting_result: dict,
+    image_selection=None,
 ) -> None:
     """Write all generated text + metadata to the output directory."""
+
+    image_review = None
+    if image_selection is not None:
+        image_review = {
+            "chosen_source": image_selection.photo.source if image_selection.photo else None,
+            "chosen_url": image_selection.photo.url if image_selection.photo else None,
+            "approved": image_selection.approved,
+            "reviews": image_selection.reviews,
+        }
 
     summary = {
         "date": date.today().isoformat(),
@@ -99,6 +116,7 @@ def save_outputs(
         "wikipedia_url": result.wikipedia_url,
         "conservation_status": result.conservation_status,
         "photos_sourced": len(result.photos),
+        "image_review": image_review,
         "posting": posting_result,
     }
 
@@ -146,47 +164,123 @@ def _format_research(r: ResearchResult) -> str:
 
 # ── Main pipeline ──────────────────────────────────────────────────────────────
 
-def run(category: str | None = None, dry_run: bool = False, no_post: bool = False) -> None:
+def _find_good_photo(result: ResearchResult, common_name: str):
+    """
+    Run the image reviewer and decide whether this species has a usable photo.
+
+    Returns the SelectionResult when a good photo is found — meaning the vision
+    reviewer approved a candidate, or image review is disabled (in which case we
+    can't judge quality and just accept the first candidate). Returns None when
+    the species has no candidate photos or the reviewer rejected all of them, so
+    the caller can move on to another species.
+    """
+    if not result.photos:
+        log.warning("No candidate photos found for '%s'.", common_name)
+        return None
+
+    sel = select_best_photo(result)
+    if sel.photo is not None and (sel.approved or not config.IMAGE_REVIEW_ENABLED):
+        return sel
+
+    log.warning(
+        "Image reviewer found no clear, high-quality photo of '%s' "
+        "(all %d candidate(s) rejected).",
+        common_name, len(sel.reviews) or len(result.photos),
+    )
+    return None
+
+
+def run(
+    category: str | None = None,
+    dry_run: bool = False,
+    no_post: bool = False,
+    species: str | None = None,
+) -> None:
     out_dir = make_output_dir()
     log.info("Output directory: %s", out_dir)
 
-    # ── 1. Select species ──────────────────────────────────────────────────────
-    MAX_TRIES = 10
+    # ── 1. Select species (research + a reviewer-approved photo both required) ──
+    #   Candidate photos are ordered Wikipedia → iNaturalist → eBird; a vision
+    #   LLM must approve one as a clear, high-quality shot with the organism
+    #   clearly visible. If none is approved the species is rejected: in auto
+    #   mode we pick another, and for a forced --species we abort with a clear
+    #   "no good photo" message.
     selection: SpeciesSelection | None = None
     result: ResearchResult | None = None
+    selection_result = None
 
-    for attempt in range(1, MAX_TRIES + 1):
-        candidate = pick_today(category=category)
-        log.info("[%d/%d] Trying: %s (%s)", attempt, MAX_TRIES,
-                 candidate.common_name, candidate.category)
+    if species:
+        # Explicit override – research exactly this species, no random picking.
+        try:
+            candidate = pick_named(species, category=category)
+        except ValueError as e:
+            log.error("%s", e)
+            sys.exit(1)
 
-        # ── 2. Research ────────────────────────────────────────────────────────
+        log.info("Forced species: %s (%s)", candidate.common_name, candidate.category)
         candidate_result = research(candidate.category, candidate.common_name)
-
         if candidate_result is None:
-            # Botanical without Uses section – pick another
-            log.warning(
-                "Skipping '%s' (botanical validation failed). Trying again…",
+            log.error(
+                "'%s' failed research/validation (e.g. no Wikipedia page, or a "
+                "botanical with no Uses section). Aborting.",
                 candidate.common_name,
             )
-            continue
+            sys.exit(1)
 
-        selection = candidate
-        result = candidate_result
-        break
+        candidate_selection = _find_good_photo(candidate_result, candidate.common_name)
+        if candidate_selection is None:
+            log.error(
+                "'%s' does not have a good photo – the image reviewer rejected "
+                "every candidate. Nothing to feature; try a different species.",
+                candidate.common_name,
+            )
+            sys.exit(1)
+        selection, result, selection_result = candidate, candidate_result, candidate_selection
+    else:
+        MAX_TRIES = 10
+        for attempt in range(1, MAX_TRIES + 1):
+            candidate = pick_today(category=category)
+            log.info("[%d/%d] Trying: %s (%s)", attempt, MAX_TRIES,
+                     candidate.common_name, candidate.category)
 
-    if selection is None or result is None:
-        log.error("Could not find a valid species after %d attempts. Aborting.", MAX_TRIES)
-        sys.exit(1)
+            # ── 2. Research ────────────────────────────────────────────────────
+            candidate_result = research(candidate.category, candidate.common_name)
+            if candidate_result is None:
+                # Botanical without Uses section – pick another
+                log.warning(
+                    "Skipping '%s' (botanical validation failed). Trying again…",
+                    candidate.common_name,
+                )
+                continue
 
-    # ── 3. Pick best photo URL (iNaturalist URLs are already public HTTPS) ──────
-    if not result.photos:
-        log.error("No photos found for '%s'. Aborting.", selection.common_name)
-        sys.exit(1)
+            # ── 3. Require a reviewer-approved photo, else pick another ─────────
+            candidate_selection = _find_good_photo(candidate_result, candidate.common_name)
+            if candidate_selection is None:
+                log.warning(
+                    "Skipping '%s' – no good photo available. Trying another species…",
+                    candidate.common_name,
+                )
+                continue
 
-    best_photo = result.photos[0]
+            selection = candidate
+            result = candidate_result
+            selection_result = candidate_selection
+            break
+
+        if selection is None or result is None or selection_result is None:
+            log.error(
+                "Could not find a species with a good photo after %d attempts. "
+                "Aborting.", MAX_TRIES,
+            )
+            sys.exit(1)
+
+    # ── 4. Use the chosen photo (reviewer-approved, or first if review off) ────
+    best_photo = selection_result.photo
     image_url = best_photo.url
-    log.info("Using photo: %s", image_url)
+    if selection_result.approved:
+        log.info("Using %s photo (reviewer approved): %s", best_photo.source, image_url)
+    else:
+        log.info("Using %s photo (image review disabled): %s", best_photo.source, image_url)
 
     # Also save a local copy for reference / dry-run inspection
     try:
@@ -252,7 +346,8 @@ def run(category: str | None = None, dry_run: bool = False, no_post: bool = Fals
             }
 
     # ── 8. Save all outputs ────────────────────────────────────────────────────
-    save_outputs(out_dir, selection, result, content, posting_result)
+    save_outputs(out_dir, selection, result, content, posting_result,
+                 image_selection=selection_result)
 
     # ── 9. Mark as posted (only if at least one platform succeeded) ────────────
     if not dry_run and not no_post:
@@ -289,6 +384,14 @@ if __name__ == "__main__":
         help="Force a specific category (default: random)",
     )
     parser.add_argument(
+        "--species",
+        default=None,
+        metavar="NAME",
+        help="Force a specific species by common name (e.g. --species \"Barn Owl\"). "
+             "Category is inferred from the species pools; pass --category too if "
+             "the species isn't in a pool.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Skip video generation AND posting (fast, cheap — for testing copy)",
@@ -300,4 +403,5 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    run(category=args.category, dry_run=args.dry_run, no_post=args.no_post)
+    run(category=args.category, dry_run=args.dry_run, no_post=args.no_post,
+        species=args.species)

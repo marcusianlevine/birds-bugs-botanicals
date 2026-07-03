@@ -102,3 +102,48 @@ def pick_today(category: str | None = None) -> SpeciesSelection:
     chosen = random.choice(remaining)
     log.info("Selected species: %s (%s)", chosen, category)
     return SpeciesSelection(category=category, common_name=chosen)
+
+
+# ── Named selection (explicit species override) ─────────────────────────────────
+
+def _find_in_pools(common_name: str) -> tuple[str | None, str]:
+    """
+    Look up a species by name in the pools (case-insensitive).
+    Returns (category, canonical_name). If not found, returns (None, common_name).
+    """
+    pools = _load_pools()
+    for category, names in pools.items():
+        for name in names:
+            if name.lower() == common_name.strip().lower():
+                return category, name
+    return None, common_name.strip()
+
+
+def pick_named(common_name: str, category: str | None = None) -> SpeciesSelection:
+    """
+    Build a selection for a specific, user-requested species (bypasses the
+    random picker). The category is inferred from the species pools when
+    possible; otherwise the caller must supply `category`.
+
+    Raises ValueError if the category can't be determined.
+    """
+    if not common_name or not common_name.strip():
+        raise ValueError("No species name provided.")
+
+    found_category, canonical = _find_in_pools(common_name)
+    resolved = found_category or category
+
+    if resolved is None:
+        raise ValueError(
+            f"'{common_name}' isn't in the species pools, so its category is "
+            f"unknown. Re-run and also pass a category "
+            f"(e.g. CATEGORY=bird / --category bird)."
+        )
+    if found_category and category and found_category != category:
+        log.warning(
+            "Requested category '%s' for '%s' but the pools list it as '%s'. "
+            "Using '%s'.", category, canonical, found_category, found_category,
+        )
+
+    log.info("Using requested species: %s (%s)", canonical, resolved)
+    return SpeciesSelection(category=resolved, common_name=canonical)
