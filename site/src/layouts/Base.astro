@@ -1,0 +1,154 @@
+---
+export interface Props {
+  title: string;
+  description?: string;
+  active?: "home" | "terms" | "privacy";
+}
+const {
+  title,
+  description = "Daily nature photos, facts, and videos from Birds, Bugs & Botanicals.",
+  active,
+} = Astro.props;
+
+const base = import.meta.env.BASE_URL;
+const year = new Date().getFullYear();
+
+const nav = [
+  { key: "home", label: "Home", href: base },
+  { key: "terms", label: "Terms of Service", href: `${base}terms-of-service/` },
+  { key: "privacy", label: "Privacy Policy", href: `${base}privacy-policy/` },
+];
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content={description} />
+  <link rel="icon" type="image/png" sizes="32x32" href={`${base}favicon-32x32.png`} />
+  <link rel="apple-touch-icon" href={`${base}apple-touch-icon.png`} />
+  <title>{title} | Birds, Bugs &amp; Botanicals</title>
+  <style>
+    :root {
+      --leaf: #2a6f3f;
+      --leaf-dark: #1f5230;
+      --cream: #faf7f0;
+      --ink: #22261f;
+      --muted: #6b7568;
+      --border: #e4e0d4;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--cream);
+      color: var(--ink);
+      font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    a { color: var(--leaf); }
+    a:hover { color: var(--leaf-dark); }
+
+    .site-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--ink);
+    }
+
+    .brand img {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .brand span {
+      font-weight: 600;
+      font-size: 1.05em;
+      letter-spacing: -0.01em;
+    }
+
+    .site-nav {
+      display: flex;
+      gap: 20px;
+      font-size: 0.92em;
+    }
+
+    .site-nav a {
+      text-decoration: none;
+      color: var(--muted);
+    }
+
+    .site-nav a.active,
+    .site-nav a:hover {
+      color: var(--leaf-dark);
+    }
+
+    main {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 40px 20px 60px;
+      line-height: 1.65;
+    }
+
+    main h1 { font-size: 1.7em; margin-bottom: 0.3em; }
+    main h2 { font-size: 1.2em; margin-top: 1.9em; }
+    main p { margin: 0.85em 0; }
+
+    .site-footer {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.88em;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 20px;
+      justify-content: space-between;
+    }
+
+    .site-footer a { color: var(--muted); }
+    .site-footer a:hover { color: var(--leaf-dark); }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href={base}>
+      <img src={`${base}favicon.png`} alt="Birds, Bugs & Botanicals logo" width="40" height="40" />
+      <span>Birds, Bugs &amp; Botanicals</span>
+    </a>
+    <nav class="site-nav">
+      {nav.map((item) => (
+        <a href={item.href} class={active === item.key ? "active" : ""}>{item.label}</a>
+      ))}
+    </nav>
+  </header>
+
+  <main>
+    <slot />
+  </main>
+
+  <footer class="site-footer">
+    <span>&copy; {year} Birds, Bugs &amp; Botanicals</span>
+    <span><a href="mailto:birdsbugsbotanicals@proton.me">birdsbugsbotanicals@proton.me</a></span>
+  </footer>
+</body>
+</html>
