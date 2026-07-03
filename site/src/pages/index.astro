@@ -25,4 +25,80 @@ const base = import.meta.env.BASE_URL;
       we feature a single bird, insect, or plant with a real photo, a short set of
       facts, and sometimes a brief AI-generated video — all paired with a soothing
       natural soundscape. The goal is simple: teach people something true and
-      interesting
+      interesting about the natural world, and make them a little more excited to
+      go spend time in it.
+    </p>
+  </section>
+
+  <section>
+    <h2>How content gets posted</h2>
+    <p>
+      This site exists to document a small internal tool that supports the page:
+      an automated Python script that we run ourselves to publish content to our
+      TikTok account through TikTok's official API. Each day, the script:
+    </p>
+    <ul>
+      <li>selects the day's featured bird, bug, or plant,</li>
+      <li>puts together the accompanying photo or video and a short factual caption, and</li>
+      <li>publishes that post directly to the Birds, Bugs &amp; Botanicals TikTok account.</li>
+    </ul>
+    <p>
+      The tool has no public interface and no user accounts. It doesn't accept
+      input from other people, and it doesn't read, collect, or interact with
+      data belonging to other TikTok users — it only ever posts our own original
+      content to our own account, on our own schedule.
+    </p>
+  </section>
+
+  <section>
+    <h2>Legal</h2>
+    <p>
+      Details on how we handle information and the terms under which the app
+      operates are here:
+    </p>
+    <ul>
+      <li><a href={`${base}terms-of-service/`}>Terms of Service</a></li>
+      <li><a href={`${base}privacy-policy/`}>Privacy Policy</a></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Contact</h2>
+    <p>
+      Questions about the page or the app can be sent to
+      <a href="mailto:birdsbugsbotanicals@proton.me">birdsbugsbotanicals@proton.me</a>.
+    </p>
+  </section>
+
+</Base>
+
+<style>
+  .hero {
+    text-align: center;
+    padding-bottom: 8px;
+  }
+
+  .hero-logo {
+    border-radius: 22px;
+    object-fit: cover;
+    margin-bottom: 16px;
+  }
+
+  .hero h1 {
+    margin: 0 0 6px;
+  }
+
+  .tagline {
+    color: #6b7568;
+    font-size: 1.05em;
+    margin-top: 0 !important;
+  }
+
+  ul {
+    padding-left: 1.3em;
+  }
+
+  li {
+    margin: 0.4em 0;
+  }
+</style>
