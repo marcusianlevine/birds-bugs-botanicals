@@ -132,7 +132,8 @@ CAPTION:
 """
 
 
-def _build_video_prompt(r: ResearchResult) -> str:
+def _static_video_prompt(r: ResearchResult) -> str:
+    """Deterministic fallback prompt used if the dynamic (LLM) one fails."""
     category_style = {
         "bird": (
             "feathers shimmer, wings subtly flex, eyes blink slowly, "
@@ -143,8 +144,8 @@ def _build_video_prompt(r: ResearchResult) -> str:
             "legs shift with delicate micro-movements"
         ),
         "botanical": (
-            "petals breathe and ripple, leaves sway in a gentle breeze, "
-            "morning dew catches the light"
+            "a gentle time-lapse: a bud swells and unfurls into bloom, "
+            "leaves sway in a soft breeze, morning dew catches the light"
         ),
     }
     motion = category_style.get(r.category, "subtle natural movement")
@@ -158,6 +159,76 @@ def _build_video_prompt(r: ResearchResult) -> str:
         f"No text, no overlays, no sudden movements. "
         f"Camera: very slow gentle push-in, as if leaning in to look closer."
     )
+
+
+# Category-specific guidance for the dynamic, research-driven video prompt.
+_VIDEO_MOTION_GUIDANCE = {
+    "bird": (
+        "Animate 2-3 SPECIFIC behaviours this bird is genuinely known for (drawn "
+        "from the research) — e.g. how it forages or feeds, a characteristic wing "
+        "or tail flick, cocking its head to listen, preening, singing, or a "
+        "courtship display. Keep every movement subtle and believable."
+    ),
+    "bug": (
+        "Animate 2-3 SPECIFIC behaviours this insect is genuinely known for (drawn "
+        "from the research) — e.g. fanning or flexing its wings, antennae probing "
+        "the air, sipping nectar or pollinating a flower, a defensive or camouflage "
+        "sway, or creeping along a stem. Delicate, micro-scale motion only."
+    ),
+    "botanical": (
+        "Animate a gentle LIFECYCLE time-lapse so we glimpse the plant at different "
+        "stages of life: e.g. a seed or bud swelling and unfurling, new leaves "
+        "emerging, petals opening into full bloom and then a seed head forming, or a "
+        "soft seasonal shift — smooth, dreamlike growth that begins from the plant "
+        "exactly as shown in the photo."
+    ),
+}
+
+
+def _build_video_prompt_request(r: ResearchResult) -> str:
+    """LLM prompt that produces a species-tailored image-to-video prompt."""
+    facts = "\n".join(f"- {f}" for f in r.fun_facts[:5]) if r.fun_facts else ""
+    facts_block = (
+        "Research notes (use these for accurate, species-specific behaviour):\n" + facts
+    ) if facts else ""
+    guidance = _VIDEO_MOTION_GUIDANCE.get(
+        r.category, "Animate subtle, natural movement true to this organism."
+    )
+
+    return f"""You are writing an image-to-video prompt for "Birds, Bugs & Botanicals". A still
+photograph of a {r.common_name} ({r.scientific_name or 'unknown'}), a {r.category}, will be
+animated into a short (~5 second) soothing, cinematic nature clip.
+
+Write ONE vivid, richly descriptive prompt (45-85 words) that brings the still to life:
+• {guidance}
+• Make it SPECIFIC to this species using the research below — not generic motion.
+• The animation must begin from the exact pose/scene in the photo and stay physically plausible.
+• Cinematic and photorealistic, shallow depth of field, soft golden-hour light, very slow gentle camera push-in.
+• No text, no overlays, no captions, no people, no sudden movements or hard cuts.
+
+TODAY'S ORGANISM:
+  Common name: {r.common_name}
+  Scientific name: {r.scientific_name or 'unknown'}
+  Category: {r.category}
+  Summary: {r.wikipedia_summary[:600]}
+{facts_block}
+
+Output ONLY the video prompt text — no preamble, no quotes, no explanation."""
+
+
+def _sanitize_video_prompt(text: str, r: ResearchResult) -> str:
+    """Clean up the model's video prompt; fall back to the static one if unusable."""
+    cleaned = (text or "").strip()
+    # Drop a leading label like "Prompt:" or "Video prompt:" first...
+    for label in ("video prompt:", "prompt:"):
+        if cleaned.lower().startswith(label):
+            cleaned = cleaned[len(label):].strip()
+    # ...then strip wrapping quotes the model may have added.
+    cleaned = cleaned.strip('"').strip("'").strip()
+    if len(cleaned) < 40:
+        log.warning("Dynamic video prompt too short; using static fallback.")
+        return _static_video_prompt(r)
+    return cleaned
 
 
 def _build_alt_text_prompt(r: ResearchResult) -> str:
@@ -196,8 +267,14 @@ def generate_content(r: ResearchResult) -> GeneratedContent:
     tiktok_script, tiktok_caption = _parse_tiktok_response(tiktok_raw)
     tiktok_caption = ensure_hashtags(tiktok_caption, required_tags)
 
-    # Video prompt for Kling
-    video_prompt = _build_video_prompt(r)
+    # Video prompt for the image-to-video model — dynamically tailored to the
+    # species (specific behaviours for birds/bugs, a lifecycle time-lapse for
+    # plants), with a deterministic fallback if the call fails.
+    try:
+        video_prompt = _sanitize_video_prompt(_call(_build_video_prompt_request(r)), r)
+    except Exception as e:
+        log.warning("Dynamic video prompt generation failed (%s); using static fallback.", e)
+        video_prompt = _static_video_prompt(r)
 
     # Alt text
     alt_text = _call(_build_alt_text_prompt(r))

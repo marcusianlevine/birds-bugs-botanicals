@@ -89,7 +89,7 @@ def _build_review_prompt(r: ResearchResult) -> str:
         f"{r.common_name} ({r.scientific_name or 'unknown'}), a {r.category}.\n\n"
         "Judge whether this single image is suitable as the hero photo for a post. "
         "It qualifies only if ALL of these are true:\n"
-        "  1. The intended organism is clearly the subject, and the organism is unambiguously visible "
+        "  1. The intended organism is clearly the subject, and the organism is unambiguously visible in its natural habitat"
         "(not tiny, not obscured or cut-off, not just a habitat/landscape shot, not containing other species).\n"
         "  2. It is in sharp focus and high quality (not blurry, pixelated, dark, "
         "or low resolution).\n"
