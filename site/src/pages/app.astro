@@ -125,7 +125,7 @@ export const prerender = true;
 
       btn.disabled = true;
       status.hidden = false;
-      status.textContent = "Researching, reviewing photos, and writing copy — this can take up to a minute…";
+      status.textContent = "Researching, reviewing photos, and writing copy — this can take a few minutes…";
 
       try {
         const res = await fetch("/api/generate", {
