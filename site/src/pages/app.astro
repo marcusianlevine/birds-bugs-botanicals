@@ -1,0 +1,281 @@
+---
+import Base from "../layouts/Base.astro";
+export const prerender = true;
+---
+<Base
+  title="App"
+  description="Generate and post daily nature content for Birds, Bugs & Botanicals."
+  active="app"
+>
+  <h1>Content App</h1>
+  <p class="lede">
+    Pick a species, generate a photo and caption from the same research
+    pipeline the daily posts use, and publish it to the Birds, Bugs &amp;
+    Botanicals TikTok account. This tool is for internal use only — it's
+    gated behind a shared password and only ever posts to our own account.
+  </p>
+
+  <section id="gate" class="panel">
+    <h2>Sign in</h2>
+    <form id="login-form">
+      <label for="password">Admin password</label>
+      <input id="password" type="password" autocomplete="current-password" required />
+      <button type="submit">Unlock</button>
+      <p id="login-error" class="error" hidden></p>
+    </form>
+  </section>
+
+  <section id="tool" class="panel" hidden>
+    <h2>1. Choose a species</h2>
+    <form id="generate-form">
+      <label for="species">Common name</label>
+      <input id="species" type="text" placeholder="e.g. Barn Owl" required />
+
+      <label for="category">Category</label>
+      <select id="category" required>
+        <option value="bird">Bird</option>
+        <option value="bug">Bug</option>
+        <option value="botanical">Botanical</option>
+      </select>
+
+      <button type="submit" id="generate-btn">Generate content</button>
+      <p id="generate-status" class="status" hidden></p>
+      <p id="generate-error" class="error" hidden></p>
+    </form>
+
+    <div id="result" hidden>
+      <h2>2. Review</h2>
+      <img id="result-photo" alt="" />
+      <p id="result-attribution" class="muted"></p>
+      <label for="result-caption">TikTok caption</label>
+      <textarea id="result-caption" rows="6"></textarea>
+
+      <h2>3. Post to TikTok</h2>
+      <div id="tiktok-disconnected">
+        <p>Connect the Birds, Bugs &amp; Botanicals TikTok account to post.</p>
+        <a id="connect-tiktok" class="button" href="/api/auth/tiktok/login">Connect TikTok</a>
+      </div>
+      <div id="tiktok-connected" hidden>
+        <p class="muted">TikTok connected ✓</p>
+        <button type="button" id="post-btn">Post to TikTok</button>
+      </div>
+      <p id="post-status" class="status" hidden></p>
+      <p id="post-error" class="error" hidden></p>
+    </div>
+  </section>
+
+  <script>
+    const $ = (id: string) => document.getElementById(id) as HTMLElement;
+    const PASSWORD_KEY = "bbb_admin_password";
+
+    function showError(el: HTMLElement, message: string) {
+      el.textContent = message;
+      el.hidden = false;
+    }
+    function hide(el: HTMLElement) {
+      el.hidden = true;
+    }
+
+    function adminHeaders(): HeadersInit {
+      const password = sessionStorage.getItem(PASSWORD_KEY) || "";
+      return { "Content-Type": "application/json", "X-Admin-Password": password };
+    }
+
+    function unlockTool() {
+      hide($("gate"));
+      $("tool").hidden = false;
+    }
+
+    // Restore a previously-entered password for this tab session.
+    if (sessionStorage.getItem(PASSWORD_KEY)) {
+      unlockTool();
+    }
+
+    $("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hide($("login-error"));
+      const password = ($("password") as HTMLInputElement).value;
+      try {
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password }),
+        });
+        if (!res.ok) {
+          showError($("login-error"), "Wrong password.");
+          return;
+        }
+        sessionStorage.setItem(PASSWORD_KEY, password);
+        unlockTool();
+      } catch {
+        showError($("login-error"), "Couldn't reach the server. Try again.");
+      }
+    });
+
+    let lastPhotoUrl = "";
+
+    $("generate-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hide($("generate-error"));
+      hide($("result"));
+      const species = ($("species") as HTMLInputElement).value.trim();
+      const category = ($("category") as HTMLSelectElement).value;
+      const btn = $("generate-btn") as HTMLButtonElement;
+      const status = $("generate-status");
+
+      btn.disabled = true;
+      status.hidden = false;
+      status.textContent = "Researching, reviewing photos, and writing copy — this can take up to a minute…";
+
+      try {
+        const res = await fetch("/api/generate", {
+          method: "POST",
+          headers: adminHeaders(),
+          body: JSON.stringify({ species, category }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showError($("generate-error"), data.error || "Something went wrong.");
+          return;
+        }
+
+        lastPhotoUrl = data.photo.url;
+        const img = $("result-photo") as HTMLImageElement;
+        img.src = data.photo.url;
+        img.alt = data.alt_text || data.common_name;
+        $("result-attribution").textContent =
+          `${data.photo.source} · ${data.photo.attribution}`;
+        ($("result-caption") as HTMLTextAreaElement).value = data.tiktok_caption;
+        $("result").hidden = false;
+      } catch {
+        showError($("generate-error"), "Couldn't reach the server. Try again.");
+      } finally {
+        btn.disabled = false;
+        status.hidden = true;
+      }
+    });
+
+    // Reflect TikTok connection state from the callback redirect's query params.
+    const params = new URLSearchParams(location.search);
+    if (params.get("tiktok_connected")) {
+      $("tiktok-disconnected").hidden = true;
+      $("tiktok-connected").hidden = false;
+    }
+    if (params.get("tiktok_error")) {
+      showError($("post-error"), `TikTok connection failed: ${params.get("tiktok_error")}`);
+    }
+
+    $("post-btn")?.addEventListener("click", async () => {
+      hide($("post-error"));
+      const status = $("post-status");
+      const btn = $("post-btn") as HTMLButtonElement;
+      btn.disabled = true;
+      status.hidden = false;
+      status.textContent = "Posting…";
+
+      try {
+        const res = await fetch("/api/post", {
+          method: "POST",
+          headers: adminHeaders(),
+          body: JSON.stringify({
+            photo_url: lastPhotoUrl,
+            caption: ($("result-caption") as HTMLTextAreaElement).value,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          showError($("post-error"), data.error || "Something went wrong.");
+          status.hidden = true;
+          return;
+        }
+        status.textContent = data.note || "Posted!";
+      } catch {
+        showError($("post-error"), "Couldn't reach the server. Try again.");
+        status.hidden = true;
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</Base>
+
+<style>
+  .lede {
+    color: #6b7568;
+  }
+
+  .panel {
+    margin-top: 1.5em;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 420px;
+  }
+
+  label {
+    font-size: 0.85em;
+    font-weight: 600;
+    margin-top: 10px;
+  }
+
+  input, select, textarea {
+    font: inherit;
+    padding: 8px 10px;
+    border: 1px solid #d7d2c2;
+    border-radius: 8px;
+    background: #fff;
+  }
+
+  button, .button {
+    margin-top: 14px;
+    align-self: flex-start;
+    font: inherit;
+    font-weight: 600;
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: none;
+    background: #2a6f3f;
+    color: #fff;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+  }
+
+  button:hover, .button:hover {
+    background: #1f5230;
+  }
+
+  button:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+
+  .error {
+    color: #b3261e;
+    font-size: 0.9em;
+  }
+
+  .status {
+    color: #6b7568;
+    font-size: 0.9em;
+  }
+
+  .muted {
+    color: #6b7568;
+    font-size: 0.9em;
+  }
+
+  #result-photo {
+    max-width: 100%;
+    border-radius: 12px;
+    margin-top: 8px;
+  }
+
+  #result-caption {
+    width: 100%;
+    max-width: 560px;
+  }
+</style>

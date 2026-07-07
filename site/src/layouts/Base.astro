@@ -2,7 +2,7 @@
 export interface Props {
   title: string;
   description?: string;
-  active?: "home" | "terms" | "privacy";
+  active?: "home" | "app" | "terms" | "privacy";
 }
 const {
   title,
@@ -15,6 +15,7 @@ const year = new Date().getFullYear();
 
 const nav = [
   { key: "home", label: "Home", href: base },
+  { key: "app", label: "App", href: `${base}app/` },
   { key: "terms", label: "Terms of Service", href: `${base}terms-of-service/` },
   { key: "privacy", label: "Privacy Policy", href: `${base}privacy-policy/` },
 ];
@@ -148,7 +149,4 @@ const nav = [
 
   <footer class="site-footer">
     <span>&copy; {year} Birds, Bugs &amp; Botanicals</span>
-    <span><a href="mailto:birdsbugsbotanicals@proton.me">birdsbugsbotanicals@proton.me</a></span>
-  </footer>
-</body>
-</html>
+    <span><a href="mailto:birdsbugsbotanicals@proton.me">birdsbug
