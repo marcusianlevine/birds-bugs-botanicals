@@ -9,7 +9,6 @@ Sources:
 
 import logging
 import re
-import time
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -66,7 +65,7 @@ def _get_wikipedia(common_name: str, category: str) -> dict:
     page = wiki.page(common_name)
     if not page.exists():
         # Try appending the category as disambiguation
-        for suffix in [f" ({category})", f" (plant)", f" (insect)", f" (bird)"]:
+        for suffix in [f" ({category})", " (plant)", " (insect)", " (bird)"]:
             page = wiki.page(common_name + suffix)
             if page.exists():
                 break

@@ -22,12 +22,10 @@ Everything is saved to output/<YYYY-MM-DD>/ regardless of mode.
 import argparse
 import json
 import logging
-import shutil
 import sys
 from datetime import date
 from pathlib import Path
 
-import requests
 
 import config
 from net import get_with_retry
@@ -38,7 +36,6 @@ from content_generator import generate_content, GeneratedContent
 from video_generator import generate_video
 from social_media import (
     post_instagram_photo,
-    post_instagram_reel,
     post_tiktok_video,
 )
 

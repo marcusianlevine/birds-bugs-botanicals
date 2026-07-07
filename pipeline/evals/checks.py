@@ -109,7 +109,6 @@ def check_instagram_caption(caption: str, required_tags: list[str]) -> list[Chec
 
     # Hashtags appear at the end (after body)
     first_hashtag_pos = caption.find('#')
-    last_body_char_pos = len(caption.rstrip()) - len(caption.rstrip().split('\n')[-1])
     tags_at_end = first_hashtag_pos > len(body)
     results.append(CheckResult(
         name="instagram/hashtags_at_end",
