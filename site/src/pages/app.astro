@@ -4,21 +4,19 @@ export const prerender = true;
 ---
 <Base
   title="App"
-  description="Generate and post daily nature content for Birds, Bugs & Botanicals."
+  description="Generate and post nature content of Birds, Bugs & Botanicals."
   active="app"
 >
   <h1>Content App</h1>
   <p class="lede">
-    Pick a species, generate a photo and caption from the same research
-    pipeline the daily posts use, and publish it to the Birds, Bugs &amp;
-    Botanicals TikTok account. This tool is for internal use only — it's
-    gated behind a shared password and only ever posts to our own account.
+    Pick a species, generate a photo and caption using an automated 
+    content pipeline, and publish it to the connected TikTok account. 
   </p>
 
   <section id="gate" class="panel">
     <h2>Sign in</h2>
     <form id="login-form">
-      <label for="password">Admin password</label>
+      <label for="password">Password</label>
       <input id="password" type="password" autocomplete="current-password" required />
       <button type="submit">Unlock</button>
       <p id="login-error" class="error" hidden></p>
@@ -52,7 +50,7 @@ export const prerender = true;
 
       <h2>3. Post to TikTok</h2>
       <div id="tiktok-disconnected">
-        <p>Connect the Birds, Bugs &amp; Botanicals TikTok account to post.</p>
+        <p>Connect TikTok account to post.</p>
         <a id="connect-tiktok" class="button" href="/api/auth/tiktok/login">Connect TikTok</a>
       </div>
       <div id="tiktok-connected" hidden>
