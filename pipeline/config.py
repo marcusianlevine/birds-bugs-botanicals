@@ -33,8 +33,8 @@ def _optional(key: str, default: str = "") -> str:
 
 # -- Ollama (OpenAI-compatible cloud endpoint) ----------------------------------
 OLLAMA_API_KEY   = _require("OLLAMA_API_KEY")
-OLLAMA_BASE_URL  = _optional("OLLAMA_BASE_URL", "https://api.ollama.com/v1")
-OLLAMA_MODEL     = _optional("OLLAMA_MODEL", "llama3.3")
+OLLAMA_BASE_URL  = _optional("OLLAMA_BASE_URL", "https://ollama.com/v1")
+OLLAMA_MODEL     = _optional("OLLAMA_MODEL", "gemma4")
 
 # -- WaveSpeed AI ----------------------------------------------------------------
 # Get your API key at https://wavespeed.ai/settings/api-keys

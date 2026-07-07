@@ -8,6 +8,11 @@ node_modules/
 # Build output
 dist/
 
+# Build-time copy of pipeline/, staged by scripts/copy-pipeline.mjs so
+# Vercel's Python builder can find it inside Root Directory - the repo-root
+# pipeline/ is the only real source, this is a disposable build artifact.
+site/pipeline/
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
