@@ -11,9 +11,22 @@ repo's pipeline/ directory (no duplicate copy) - deliberately stops short of
 video_generator.py, which only ever runs from the CLI pipeline directly.
 
 Vercel's Root Directory is set to site/, so pipeline/ (one level up, at the
-repo root) is outside it by default - the project must have "Include files
-outside the Root Directory in the Build Step" enabled (Project Settings ->
-General -> Root Directory) for this import to find it at build/runtime.
+repo root) is outside it by default. Two things are required for this import
+to work when deployed:
+  1. Project Settings -> General -> Root Directory -> "Include source files
+     outside of the Root Directory in the Build Step" must be enabled, so
+     pipeline/ is even visible to the build.
+  2. vercel.json's "includeFiles": "../pipeline/**" on this function, since
+     Python Vercel Functions do no automatic import-tracing (unlike Node) -
+     files aren't bundled into the deployed function just because they're
+     importable locally.
+
+Locally, this file lives at site/api/generate.py, so pipeline/ is two
+directories up. Deployed, Vercel flattens Root Directory (site/) to the
+function's own root, so pipeline/ ends up only one directory up instead -
+parents[2] would miss it entirely. _find_pipeline_dir() walks up from this
+file looking for a "pipeline" directory that actually contains research.py,
+so it resolves correctly in both layouts instead of assuming one fixed depth.
 """
 
 import sys
@@ -21,8 +34,22 @@ from pathlib import Path
 
 from flask import Flask, jsonify, request
 
+
+def _find_pipeline_dir() -> Path:
+    here = Path(__file__).resolve()
+    for ancestor in here.parents:
+        candidate = ancestor / "pipeline"
+        if (candidate / "research.py").is_file():
+            return candidate
+    raise RuntimeError(
+        "Could not locate the pipeline/ directory from "
+        f"{here} - check vercel.json's includeFiles and the Root "
+        "Directory build setting."
+    )
+
+
 sys.path.insert(0, str(Path(__file__).parent / "_lib"))
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipeline"))
+sys.path.insert(0, str(_find_pipeline_dir()))
 
 from webauth import check_admin_password  # noqa: E402
 import research as research_mod  # noqa: E402

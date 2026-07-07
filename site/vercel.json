@@ -1,6 +1,9 @@
 {
   "functions": {
-    "api/generate.py": { "maxDuration": 60 },
+    "api/generate.py": {
+      "maxDuration": 60,
+      "includeFiles": "../pipeline/**"
+    },
     "api/post.py": { "maxDuration": 30 },
     "api/photo-proxy.py": { "maxDuration": 30 }
   }
