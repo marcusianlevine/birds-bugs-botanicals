@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/generate.py": {
-      "maxDuration": 60,
+      "maxDuration": 300,
       "includeFiles": "pipeline/**"
     },
     "api/post.py": { "maxDuration": 30 },
