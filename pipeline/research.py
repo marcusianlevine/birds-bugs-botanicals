@@ -16,11 +16,14 @@ import requests
 import wikipediaapi
 
 import config
-from net import get_with_retry
+from net import DEFAULT_USER_AGENT, get_with_retry
 
 log = logging.getLogger(__name__)
 
-WIKI_USER_AGENT = "BirdsBugsBotanicals/1.0 (marcusianl@gmail.com)"
+# Same UA get_with_retry() applies by default - kept as an alias here since
+# wikipediaapi.Wikipedia(user_agent=...) doesn't go through get_with_retry
+# and needs it passed explicitly.
+WIKI_USER_AGENT = DEFAULT_USER_AGENT
 INATURALIST_BASE = "https://api.inaturalist.org/v1"
 EBIRD_BASE = "https://api.ebird.org/v2"
 
