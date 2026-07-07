@@ -1,5 +1,5 @@
 import { defineConfig } from 'astro/config';
-import vercel from '@astrojs/vercel/serverless';
+import vercel from '@astrojs/vercel';
 
 // Deployed on Vercel at https://birdsbugsbotanicals.marcuslevine.com
 // SSR is required because /app calls server-side API functions (see api/)
