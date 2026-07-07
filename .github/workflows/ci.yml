@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pipeline:
+    name: pipeline
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    env:
+      # These only need to be non-empty to satisfy pipeline/config.py's
+      # required-key checks at import time (triggered transitively by
+      # evals/judge.py's module-level OpenAI client). No real API calls
+      # happen in this job - the LLM-judge tests in evals/test_quality.py
+      # are skipped unless --llm-judge is passed, which it isn't here.
+      OLLAMA_API_KEY: ci-placeholder
+      TIKTOK_CLIENT_KEY: ci-placeholder
+      TIKTOK_CLIENT_SECRET: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install ruff pytest pytest-timeout
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Compile check
+        run: python -m compileall -q .
+
+      - name: Install synthetic eval fixture
+        run: cp evals/fixtures/sample_eval_fixture.json data/eval_fixture.json
+
+      - name: Run tests (structural checks only - no live API calls)
+        run: pytest evals/ -v
+
+  site:
+    name: site
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    env:
+      # Satisfies pipeline/config.py's required-key checks at import time,
+      # since site/api/generate.py imports the shared pipeline/ modules.
+      # No real API calls happen in this job either.
+      OLLAMA_API_KEY: ci-placeholder
+      TIKTOK_CLIENT_KEY: ci-placeholder
+      TIKTOK_CLIENT_SECRET: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Astro type/template check
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          pip install ruff
+
+      - name: Lint API (ruff)
+        run: ruff check api
+
+      - name: Run API tests
+        run: pytest tests/ -v
