@@ -1,15 +1,19 @@
 """
-/api/generate – research a species and generate post copy (no video).
+/api/generate - research a species and generate post copy (no video).
 
 POST { "species": "Barn Owl", "category": "bird" }
 ->  { common_name, scientific_name, category, wikipedia_url,
       conservation_status, photo: {...}, instagram_caption,
       tiktok_caption, alt_text }
 
-Reuses the same research() / select_best_photo() / generate_content()
-functions the CLI pipeline calls (see site/api/_lib, a trimmed copy kept in
-sync with pipeline/) — deliberately stops short of video_generator.py, which
-only ever runs from the CLI pipeline directly.
+Imports research()/select_best_photo()/generate_content() straight from the
+repo's pipeline/ directory (no duplicate copy) - deliberately stops short of
+video_generator.py, which only ever runs from the CLI pipeline directly.
+
+Vercel's Root Directory is set to site/, so pipeline/ (one level up, at the
+repo root) is outside it by default - the project must have "Include files
+outside the Root Directory in the Build Step" enabled (Project Settings ->
+General -> Root Directory) for this import to find it at build/runtime.
 """
 
 import sys
@@ -18,6 +22,7 @@ from pathlib import Path
 from flask import Flask, jsonify, request
 
 sys.path.insert(0, str(Path(__file__).parent / "_lib"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipeline"))
 
 from webauth import check_admin_password  # noqa: E402
 import research as research_mod  # noqa: E402
@@ -52,7 +57,7 @@ def generate():
         return jsonify({
             "error": (
                 f"Couldn't validate '{species}' as a {category}. "
-                "(Botanicals need a Wikipedia ‘Uses’ section to qualify.)"
+                "(Botanicals need a Wikipedia 'Uses' section to qualify.)"
             )
         }), 422
 

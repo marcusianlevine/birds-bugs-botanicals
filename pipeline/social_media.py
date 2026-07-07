@@ -23,6 +23,20 @@ log = logging.getLogger(__name__)
 TIKTOK_CHUNK_SIZE = 10 * 1024 * 1024    # 10 MB per chunk
 
 
+def _require_instagram_config() -> None:
+    missing = [
+        name for name, val in (
+            ("INSTAGRAM_ACCESS_TOKEN", config.INSTAGRAM_ACCESS_TOKEN),
+            ("INSTAGRAM_ACCOUNT_ID", config.INSTAGRAM_ACCOUNT_ID),
+        ) if not val
+    ]
+    if missing:
+        raise EnvironmentError(
+            f"Missing required environment variable(s): {', '.join(missing)}\n"
+            f"See .env.example for setup instructions."
+        )
+
+
 # -- Instagram Graph API -------------------------------------------------------
 #
 # Flow for a photo post:
@@ -44,6 +58,7 @@ def post_instagram_photo(image_url: str, caption: str, alt_text: str = "") -> st
     Returns:
         Published media ID string.
     """
+    _require_instagram_config()
     account_id = config.INSTAGRAM_ACCOUNT_ID
     token = config.INSTAGRAM_ACCESS_TOKEN
 
@@ -84,6 +99,7 @@ def post_instagram_reel(video_url: str, caption: str) -> str:
     Returns:
         Published media ID string.
     """
+    _require_instagram_config()
     account_id = config.INSTAGRAM_ACCOUNT_ID
     token = config.INSTAGRAM_ACCESS_TOKEN
 
@@ -169,6 +185,12 @@ def post_tiktok_video(video_path: Path, caption: str) -> str:
     Returns:
         publish_id string.
     """
+    if not config.TIKTOK_ACCESS_TOKEN:
+        raise EnvironmentError(
+            "Missing required environment variable: TIKTOK_ACCESS_TOKEN\n"
+            "Run `python tiktok_auth.py --save-env` to generate one, or see "
+            ".env.example for setup instructions."
+        )
     token = config.TIKTOK_ACCESS_TOKEN
     headers = {
         "Authorization": f"Bearer {token}",

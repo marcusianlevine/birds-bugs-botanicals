@@ -1,10 +1,10 @@
 """
-video_generator.py – generate an image-to-video clip via WaveSpeed AI.
+video_generator.py - generate an image-to-video clip via WaveSpeed AI.
 
 WaveSpeed API reference: https://wavespeed.ai/docs
 Auth: WAVESPEED_API_KEY environment variable (picked up automatically by the SDK)
 
-The SDK handles job submission and polling internally — wavespeed.run() blocks
+The SDK handles job submission and polling internally - wavespeed.run() blocks
 until the video is ready and returns the result dict.
 
 iNaturalist photo URLs are publicly accessible HTTPS, so we pass them directly.
@@ -32,7 +32,7 @@ def _resolve_image_url(image_url: str) -> str:
     (some CDNs block non-browser requests), downloads it and re-uploads via the
     WaveSpeed storage API.
     """
-    # iNaturalist URLs are reliably public — pass through directly.
+    # iNaturalist URLs are reliably public - pass through directly.
     # Only fall back to upload if explicitly needed (e.g. local files or
     # restricted hosts). Keeping this fast path keeps latency low.
     return image_url
@@ -40,7 +40,7 @@ def _resolve_image_url(image_url: str) -> str:
 
 def _upload_image(image_url: str) -> str:
     """Download image_url and upload it to WaveSpeed storage. Returns hosted URL."""
-    log.info("Uploading image to WaveSpeed storage (fallback path)…")
+    log.info("Uploading image to WaveSpeed storage (fallback path)...")
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
         tmp_path = Path(tmp.name)
 
@@ -72,6 +72,12 @@ def generate_video(image_url: str, prompt: str, output_path: Path) -> Path:
         RuntimeError  if the API call fails or returns no video.
         TimeoutError  if generation exceeds config.WAVESPEED_TIMEOUT seconds.
     """
+    if not config.WAVESPEED_API_KEY:
+        raise EnvironmentError(
+            "Missing required environment variable: WAVESPEED_API_KEY\n"
+            "See .env.example for setup instructions."
+        )
+
     resolved_url = _resolve_image_url(image_url)
 
     payload = {
@@ -87,7 +93,7 @@ def generate_video(image_url: str, prompt: str, output_path: Path) -> Path:
     }
 
     log.info(
-        "Submitting WaveSpeed image-to-video job (model: %s, resolution: %s, duration: %ss)…",
+        "Submitting WaveSpeed image-to-video job (model: %s, resolution: %s, duration: %ss)...",
         config.WAVESPEED_MODEL, config.WAVESPEED_VIDEO_RESOLUTION, config.WAVESPEED_VIDEO_DURATION,
     )
 
@@ -102,7 +108,7 @@ def generate_video(image_url: str, prompt: str, output_path: Path) -> Path:
         err = str(e)
         # If the direct URL was rejected, retry with an uploaded copy
         if "url" in err.lower() or "fetch" in err.lower() or "image" in err.lower():
-            log.warning("Direct URL failed (%s) — retrying with uploaded image…", e)
+            log.warning("Direct URL failed (%s) - retrying with uploaded image...", e)
             payload["image"] = _upload_image(image_url)
             result = wavespeed.run(
                 config.WAVESPEED_MODEL,
@@ -125,7 +131,7 @@ def generate_video(image_url: str, prompt: str, output_path: Path) -> Path:
 
 def _download_video(video_url: str, output_path: Path) -> Path:
     """Stream-download the finished MP4 to output_path."""
-    log.info("Downloading video…")
+    log.info("Downloading video...")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with requests.get(video_url, stream=True, timeout=120) as r:
