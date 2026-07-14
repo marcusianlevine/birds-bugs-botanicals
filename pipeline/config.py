@@ -84,6 +84,16 @@ WAVESPEED_VIDEO_DURATION = int(_optional("WAVESPEED_VIDEO_DURATION", "5"))
 WAVESPEED_POLL_INTERVAL  = float(_optional("WAVESPEED_POLL_INTERVAL", "3.0"))
 WAVESPEED_TIMEOUT        = int(_optional("WAVESPEED_TIMEOUT", "600"))
 
+# -- Soundscapes -----------------------------------------------------------------
+# WaveSpeed clips are silent; after each video is generated we mux one of the
+# pre-generated nature soundscapes in audio/ onto it (chosen at random), trimmed
+# to the video length with a short fade-out. Best-effort: if ffmpeg is missing or
+# no audio files are present, the pipeline logs a warning and keeps the silent video.
+AUDIO_DIR                = Path(_optional("AUDIO_DIR", str(Path(__file__).parent / "audio")))
+SOUNDSCAPE_ENABLED       = _optional("SOUNDSCAPE_ENABLED", "true").lower() == "true"
+SOUNDSCAPE_AUDIO_BITRATE = _optional("SOUNDSCAPE_AUDIO_BITRATE", "192k")
+SOUNDSCAPE_FADE_OUT      = float(_optional("SOUNDSCAPE_FADE_OUT", "1.0"))  # seconds
+
 # iNaturalist quality grade for photo sourcing
 INATURALIST_QUALITY  = "research"
 INATURALIST_PER_PAGE = 10

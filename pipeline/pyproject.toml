@@ -10,6 +10,7 @@ dependencies = [
     "Pillow>=10.0.0",
     "wikipedia-api>=0.6.0",
     "wavespeed>=0.1.0",
+    "static-ffmpeg>=2.5",
 ]
 
 [tool.uv]
