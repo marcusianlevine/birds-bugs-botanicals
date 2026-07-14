@@ -29,7 +29,13 @@ from pathlib import Path
 
 import config
 from net import get_with_retry
-from species_selector import pick_today, pick_named, mark_posted, SpeciesSelection
+from species_selector import (
+    pick_today,
+    pick_named,
+    mark_posted,
+    mark_rejected,
+    SpeciesSelection,
+)
 from research import research, ResearchResult
 from image_reviewer import select_best_photo
 from content_generator import generate_content, GeneratedContent
@@ -253,6 +259,9 @@ def run(
             # ── 3. Require a reviewer-approved photo, else pick another ─────────
             candidate_selection = _find_good_photo(candidate_result, candidate.common_name)
             if candidate_selection is None:
+                # No usable photo — exclude this species from future random
+                # selection so we don't keep rediscovering it has no good image.
+                mark_rejected(candidate)
                 log.warning(
                     "Skipping '%s' – no good photo available. Trying another species…",
                     candidate.common_name,
@@ -286,7 +295,7 @@ def run(
         log.warning("Could not save local image copy: %s", e)
 
     # ── 4. Generate post copy ──────────────────────────────────────────────────
-    content = generate_content(result)
+    content = generate_content(result, photo=best_photo)
 
     # ── 5. Generate TikTok video via Kling AI ─────────────────────────────────
     posting_result: dict = {}

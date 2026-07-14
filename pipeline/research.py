@@ -7,10 +7,12 @@ Sources:
   • eBird       – range maps and observation data (birds only)
 """
 
+import html
 import logging
 import re
 from dataclasses import dataclass, field
 from typing import Optional
+from urllib.parse import unquote
 
 import requests
 import wikipediaapi
@@ -97,6 +99,7 @@ def _get_wikipedia(common_name: str, category: str) -> dict:
 
     # Lead image (the reviewer tries this before other databases)
     image_url, thumb_url = _get_wikipedia_image(page.title)
+    image_credit = _wikimedia_image_credit(image_url) if image_url else ""
 
     return {
         "summary": page.summary[:1500],   # first ~1500 chars
@@ -107,6 +110,7 @@ def _get_wikipedia(common_name: str, category: str) -> dict:
         "fun_facts": fun_facts,
         "image_url": image_url,
         "thumb_url": thumb_url,
+        "image_credit": image_credit,
     }
 
 
@@ -157,6 +161,65 @@ def _get_wikipedia_image(title: str) -> tuple[str, str]:
     original = (page.get("original") or {}).get("source", "")
     thumb = (page.get("thumbnail") or {}).get("source", "")
     return original, (thumb or original)
+
+
+def _strip_html(raw: str) -> str:
+    """Reduce an HTML fragment (e.g. Commons Artist metadata) to plain text."""
+    text = re.sub(r"<[^>]+>", " ", raw or "")
+    text = html.unescape(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:120].strip(" ·,;")
+
+
+def _wikimedia_image_credit(original_url: str) -> str:
+    """
+    Best-effort photographer/author credit for a Wikimedia Commons image.
+
+    Looks up the file's extmetadata (Artist field) via the Commons imageinfo API
+    and returns a plain-text credit like "Jane Doe / Wikimedia Commons". Falls
+    back to "Wikimedia Commons" when the author isn't available or the lookup
+    fails, so a post always has *some* credit.
+    """
+    fallback = "Wikimedia Commons"
+    if not original_url:
+        return fallback
+
+    filename = unquote(original_url.rsplit("/", 1)[-1])
+    if not filename:
+        return fallback
+
+    params = {
+        "action": "query",
+        "format": "json",
+        "formatversion": 2,
+        "prop": "imageinfo",
+        "iiprop": "extmetadata",
+        "titles": f"File:{filename}",
+        "redirects": 1,
+    }
+    try:
+        resp = get_with_retry(
+            "https://commons.wikimedia.org/w/api.php",
+            params=params,
+            headers={"User-Agent": WIKI_USER_AGENT},
+            timeout=10,
+        )
+        pages = resp.json().get("query", {}).get("pages", [])
+    except (requests.RequestException, ValueError) as e:
+        log.debug("Wikimedia credit lookup failed for '%s': %s", filename, e)
+        return fallback
+
+    if isinstance(pages, dict):
+        pages = list(pages.values())
+    if not pages:
+        return fallback
+
+    imageinfo = pages[0].get("imageinfo") or [{}]
+    extmeta = imageinfo[0].get("extmetadata", {}) if imageinfo else {}
+    artist = _strip_html((extmeta.get("Artist") or {}).get("value", ""))
+    if artist:
+        return f"{artist} / Wikimedia Commons"
+    return fallback
 
 
 def _extract_scientific_name(text: str) -> str:
@@ -407,7 +470,7 @@ def research(category: str, common_name: str) -> Optional[ResearchResult]:
         photos.append(Photo(
             url=wiki_data["image_url"],
             thumb_url=wiki_data.get("thumb_url", wiki_data["image_url"]),
-            attribution="Wikimedia Commons (via Wikipedia)",
+            attribution=wiki_data.get("image_credit") or "Wikimedia Commons",
             source="Wikipedia",
         ))
     photos.extend(inat_data.get("photos", []))

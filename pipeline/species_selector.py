@@ -52,6 +52,45 @@ def mark_posted(selection: SpeciesSelection) -> None:
     log.info("Marked as posted: %s (%s)", selection.common_name, selection.category)
 
 
+# ── Rejected-species helpers ───────────────────────────────────────────────────
+#
+# A species that gets randomly selected but has no photo good enough to feature
+# is recorded here and permanently excluded from future random selection, so we
+# don't keep wasting research/vision-review calls rediscovering it has no usable
+# image. (An explicit --species override bypasses this list.)
+
+def _load_rejected() -> dict:
+    if config.REJECTED_FILE.exists():
+        with open(config.REJECTED_FILE) as f:
+            return json.load(f)
+    return {"bird": [], "bug": [], "botanical": []}
+
+
+def _save_rejected(rejected: dict) -> None:
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(config.REJECTED_FILE, "w") as f:
+        json.dump(rejected, f, indent=2)
+
+
+def mark_rejected(selection: SpeciesSelection, reason: str = "no acceptable photo") -> None:
+    """Exclude a species from future random selection (e.g. no usable photo)."""
+    rejected = _load_rejected()
+    names = {entry["name"] for entry in rejected.get(selection.category, [])}
+    if selection.common_name in names:
+        return  # already recorded
+    entry = {
+        "name": selection.common_name,
+        "date": selection.selected_date,
+        "reason": reason,
+    }
+    rejected.setdefault(selection.category, []).append(entry)
+    _save_rejected(rejected)
+    log.info(
+        "Marked as rejected (%s): %s (%s) — won't be selected again.",
+        reason, selection.common_name, selection.category,
+    )
+
+
 # ── Species pool ───────────────────────────────────────────────────────────────
 
 def _load_pools() -> dict:
@@ -82,21 +121,31 @@ def pick_today(category: str | None = None) -> SpeciesSelection:
 
     pools = _load_pools()
     history = _load_history()
+    rejected = _load_rejected()
 
     pool: list[str] = pools[category]
     posted_names: set[str] = {entry["name"] for entry in history.get(category, [])}
+    rejected_names: set[str] = {entry["name"] for entry in rejected.get(category, [])}
 
-    # Filter out already-posted species
-    remaining = [s for s in pool if s not in posted_names]
+    # Filter out already-posted species and any excluded for having no good photo
+    remaining = [s for s in pool if s not in posted_names and s not in rejected_names]
 
     if not remaining:
         log.warning(
-            "All %s species have been posted. Resetting %s history.",
+            "All usable %s species have been posted. Resetting %s history "
+            "(rejected species stay excluded).",
             category, category
         )
         history[category] = []
         _save_history(history)
-        remaining = pool.copy()
+        # Rejected species have no usable photo, so keep excluding them.
+        remaining = [s for s in pool if s not in rejected_names]
+        if not remaining:
+            log.error(
+                "Every %s species is on the rejected list. Falling back to the "
+                "full pool for this run.", category
+            )
+            remaining = pool.copy()
 
     chosen = random.choice(remaining)
     log.info("Selected species: %s (%s)", chosen, category)

@@ -11,11 +11,12 @@ Generates:
 import json
 import logging
 from dataclasses import dataclass
+from typing import Optional
 
 from openai import OpenAI
 
 import config
-from research import ResearchResult
+from research import Photo, ResearchResult
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +46,47 @@ def ensure_hashtags(text: str, required_tags: list[str]) -> str:
     if missing:
         text = text.rstrip() + "\n" + " ".join(missing)
     return text
+
+
+# ── Attribution / source footer ────────────────────────────────────────────────
+
+def format_photo_credit(photo: Optional[Photo]) -> str:
+    """
+    Human-readable photo credit: the photographer/author when known, plus where
+    the image was pulled from. Avoids repeating the source when the attribution
+    already names it (or a known equivalent, e.g. Wikimedia ⇄ Wikipedia).
+    """
+    if photo is None:
+        return ""
+    credit = (photo.attribution or "").strip()
+    source = (photo.source or "").strip()
+    if source:
+        aliases = {source.lower()}
+        if source.lower() == "wikipedia":
+            aliases.add("wikimedia")
+        if source.lower() == "ebird":
+            aliases.add("macaulay")
+        if not any(alias in credit.lower() for alias in aliases):
+            credit = f"{credit} · via {source}" if credit else f"via {source}"
+    return credit
+
+
+def build_caption_footer(r: ResearchResult, photo: Optional[Photo]) -> str:
+    """A source block appended to every posted caption: Wikipedia link + credit."""
+    lines: list[str] = []
+    if r.wikipedia_url:
+        lines.append(f"📖 Learn more: {r.wikipedia_url}")
+    credit = format_photo_credit(photo)
+    if credit:
+        lines.append(f"📷 Photo: {credit}")
+    return "\n".join(lines)
+
+
+def _append_footer(caption: str, footer: str) -> str:
+    """Append the source footer below the caption (after any hashtag block)."""
+    if not footer:
+        return caption
+    return caption.rstrip() + "\n\n" + footer
 
 
 @dataclass
@@ -241,8 +283,14 @@ def _build_alt_text_prompt(r: ResearchResult) -> str:
 
 # ── Main generator ─────────────────────────────────────────────────────────────
 
-def generate_content(r: ResearchResult) -> GeneratedContent:
-    """Call Claude to generate all post copy for the organism."""
+def generate_content(r: ResearchResult, photo: Optional[Photo] = None) -> GeneratedContent:
+    """
+    Call Claude to generate all post copy for the organism.
+
+    If ``photo`` (the reviewer-selected image) is provided, a source footer with
+    the Wikipedia link and photo credit is appended to both the Instagram and
+    TikTok captions so every posted item is attributed.
+    """
 
     log.info("Generating content for: %s", r.common_name)
 
@@ -277,6 +325,11 @@ def generate_content(r: ResearchResult) -> GeneratedContent:
 
     # Alt text
     alt_text = _call(_build_alt_text_prompt(r))
+
+    # Source footer (Wikipedia link + photo credit) appended to both captions.
+    footer = build_caption_footer(r, photo)
+    instagram_caption = _append_footer(instagram_caption, footer)
+    tiktok_caption = _append_footer(tiktok_caption, footer)
 
     return GeneratedContent(
         instagram_caption=instagram_caption,

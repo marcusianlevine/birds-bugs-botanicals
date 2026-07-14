@@ -75,6 +75,10 @@ DATA_DIR   = Path(__file__).parent / "data"
 # History file - tracks every species ever posted to avoid repeats
 HISTORY_FILE = DATA_DIR / "posted_history.json"
 
+# Rejected file - tracks species that were randomly selected but had no photo
+# good enough to feature, so they're excluded from future random selection.
+REJECTED_FILE = DATA_DIR / "rejected_species.json"
+
 # WaveSpeed video settings
 # Model - wan-2.1 is the documented image-to-video model; swap to a newer
 # wavespeed-ai/* model string here without touching any other code.

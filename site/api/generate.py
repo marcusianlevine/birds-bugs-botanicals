@@ -99,7 +99,7 @@ def generate():
         }), 422
 
     try:
-        content = content_generator.generate_content(result)
+        content = content_generator.generate_content(result, photo=selection.photo)
     except Exception as e:  # noqa: BLE001
         return jsonify({"error": f"Content generation failed: {e}"}), 502
 
