@@ -13,12 +13,12 @@ dependencies = [
     "static-ffmpeg>=2.5",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=8.0.0",
     "pytest-timeout>=2.3.0",
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["evals"]
+testpaths = ["tests", "evals"]
 addopts = "-v"

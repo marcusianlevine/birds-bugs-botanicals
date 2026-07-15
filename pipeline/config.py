@@ -79,6 +79,11 @@ HISTORY_FILE = DATA_DIR / "posted_history.json"
 # good enough to feature, so they're excluded from future random selection.
 REJECTED_FILE = DATA_DIR / "rejected_species.json"
 
+# When the automated picker exhausts a category (every species posted or
+# rejected), it runs species discovery to add this many new species before
+# falling back to recycling posted history.
+DISCOVERY_REFILL_COUNT = int(_optional("DISCOVERY_REFILL_COUNT", "10"))
+
 # WaveSpeed video settings
 # Model - wan-2.1 is the documented image-to-video model; swap to a newer
 # wavespeed-ai/* model string here without touching any other code.

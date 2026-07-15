@@ -6,8 +6,9 @@
 .PHONY: help setup run dry-run generate \
         auth-tiktok auth-tiktok-save \
         auth-instagram auth-instagram-refresh \
-        test test-full \
+        test test-unit test-full \
         eval eval-fast eval-save \
+        discover-species \
         clean
 
 # uv run automatically uses the .venv created by `make setup`
@@ -27,10 +28,8 @@ FEATURE_OPTS := $(if $(SPECIES),--species "$(SPECIES)",) $(if $(CATEGORY),--cate
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
 
-setup:           ## Create .venv and install all dependencies
-	$(UV) venv .venv
-	$(UV) pip install -r requirements.txt
-	$(UV) pip install --dev pytest pytest-timeout
+setup:           ## Create .venv and install all deps (runtime + dev) from pyproject via uv
+	$(UV) sync
 	@echo ""
 	@echo "Environment ready. Copy .env.example to .env and fill in your API keys."
 
@@ -72,13 +71,22 @@ eval-save:       ## Generate content, run evals, and save fixture for pytest
 
 # ── Tests ──────────────────────────────────────────────────────────────────────
 
-test:            ## Fast structural tests using saved fixture (no API calls)
-	$(RUN) pytest evals/test_structural.py
+test-unit:       ## Fast deterministic unit tests (no API calls, no fixture needed)
+	$(RUN) pytest tests/
+
+test:            ## Unit tests + structural checks against saved fixture (no API calls)
+	$(RUN) pytest tests/ evals/test_structural.py
 
 test-full:       ## Full test suite including LLM-as-judge quality tests (slow)
-	$(RUN) pytest evals/ --llm-judge
+	$(RUN) pytest tests/ evals/ --llm-judge
 
 # ── Maintenance ────────────────────────────────────────────────────────────────
+
+MAX ?= 10
+discover-species: ## Research & add up to MAX new species (default 10) to the pools via iNaturalist. Optional: MAX=, CATEGORY=, DRY_RUN=1
+	$(RUN) python species_discovery.py --max $(MAX) \
+		$(if $(CATEGORY),--category "$(CATEGORY)",) \
+		$(if $(DRY_RUN),--dry-run,)
 
 clean:           ## Remove generated output folders and cached fixture
 	rm -rf output/

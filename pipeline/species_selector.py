@@ -99,6 +99,37 @@ def _load_pools() -> dict:
         return json.load(f)
 
 
+# ── Automatic pool refill via discovery ─────────────────────────────────────────
+
+def _discover_more(category: str) -> list[str]:
+    """
+    Grow the pool for `category` by running species discovery, persisting any
+    additions to species_pools.json. Returns the newly added common names.
+
+    Best-effort: returns [] (and logs) if discovery is unavailable or finds
+    nothing — e.g. the network is down or the pool already covers the
+    most-observed species — so the caller can fall back to recycling history.
+    """
+    try:
+        import species_discovery
+        added, pools = species_discovery.discover(
+            max_total=config.DISCOVERY_REFILL_COUNT,
+            only_category=category,
+        )
+    except Exception as e:  # noqa: BLE001 - discovery must never break selection
+        log.error("Species discovery failed for %s: %s", category, e)
+        return []
+
+    new_names = added.get(category, [])
+    if new_names:
+        species_discovery._save_pools(pools)
+        log.info(
+            "Discovery added %d new %s species: %s",
+            len(new_names), category, ", ".join(new_names),
+        )
+    return new_names
+
+
 # ── Main selector ──────────────────────────────────────────────────────────────
 
 def pick_today(category: str | None = None) -> SpeciesSelection:
@@ -131,21 +162,33 @@ def pick_today(category: str | None = None) -> SpeciesSelection:
     remaining = [s for s in pool if s not in posted_names and s not in rejected_names]
 
     if not remaining:
+        # Pool is exhausted for this category (everything posted or rejected).
+        # Try to grow it with freshly discovered species before recycling.
         log.warning(
-            "All usable %s species have been posted. Resetting %s history "
-            "(rejected species stay excluded).",
-            category, category
+            "All usable %s species are exhausted (posted or rejected). "
+            "Running species discovery to find new ones…", category
         )
-        history[category] = []
-        _save_history(history)
-        # Rejected species have no usable photo, so keep excluding them.
-        remaining = [s for s in pool if s not in rejected_names]
+        if _discover_more(category):
+            pool = _load_pools()[category]   # reload the freshly grown pool
+            remaining = [s for s in pool if s not in posted_names and s not in rejected_names]
+
         if not remaining:
-            log.error(
-                "Every %s species is on the rejected list. Falling back to the "
-                "full pool for this run.", category
+            # Discovery found nothing new (or is offline) — recycle posted
+            # history as a last resort so a post still goes out today.
+            log.warning(
+                "No new %s species available from discovery. Resetting %s history "
+                "(rejected species stay excluded).", category, category
             )
-            remaining = pool.copy()
+            history[category] = []
+            _save_history(history)
+            # Rejected species have no usable photo, so keep excluding them.
+            remaining = [s for s in pool if s not in rejected_names]
+            if not remaining:
+                log.error(
+                    "Every %s species is on the rejected list and discovery found "
+                    "nothing. Falling back to the full pool for this run.", category
+                )
+                remaining = pool.copy()
 
     chosen = random.choice(remaining)
     log.info("Selected species: %s (%s)", chosen, category)

@@ -1,6 +1,0 @@
-openai>=1.30.0
-requests>=2.31.0
-python-dotenv>=1.0.0
-Pillow>=10.0.0
-wikipedia-api>=0.6.0
-wavespeed>=0.1.0

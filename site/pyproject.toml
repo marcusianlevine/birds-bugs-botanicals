@@ -1,0 +1,24 @@
+[project]
+name = "birds-bugs-botanicals-site"
+version = "0.1.0"
+description = "Web app and admin API for Birds, Bugs & Botanicals"
+requires-python = ">=3.11"
+# Runtime dependencies for the Vercel Python functions in api/. These import the
+# shared pipeline/ modules but deliberately stop short of video_generator.py, so
+# the heavier deps (wavespeed, Pillow, static-ffmpeg) are intentionally omitted.
+dependencies = [
+    "flask>=3.0.0",
+    "requests>=2.31.0",
+    "openai>=1.30.0",
+    "wikipedia-api>=0.6.0",
+    "python-dotenv>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
