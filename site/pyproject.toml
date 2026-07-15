@@ -2,7 +2,7 @@
 name = "birds-bugs-botanicals-site"
 version = "0.1.0"
 description = "Web app and admin API for Birds, Bugs & Botanicals"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 # Runtime dependencies for the Vercel Python functions in api/. These import the
 # shared pipeline/ modules but deliberately stop short of video_generator.py, so
 # the heavier deps (wavespeed, Pillow, static-ffmpeg) are intentionally omitted.

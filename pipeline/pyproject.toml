@@ -2,7 +2,7 @@
 name = "birds-bugs-botanicals"
 version = "0.1.0"
 description = "Daily content pipeline for Birds, Bugs & Botanicals"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "openai>=1.30.0",
     "requests>=2.31.0",
