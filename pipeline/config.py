@@ -14,6 +14,7 @@ TikTok app credentials, like the web app does.
 
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load .env file if present
@@ -22,7 +23,7 @@ load_dotenv(Path(__file__).parent / ".env")
 def _require(key: str) -> str:
     val = os.getenv(key)
     if not val:
-        raise EnvironmentError(
+        raise OSError(
             f"Missing required environment variable: {key}\n"
             f"See .env.example for setup instructions."
         )

@@ -34,7 +34,7 @@ jobs:
         run: make setup
 
       - name: Lint (ruff)
-        run: uvx ruff check .
+        run: uvx ruff@0.16.6 check .
 
       - name: Compile check
         run: uv run python -m compileall -q .
@@ -86,7 +86,7 @@ jobs:
         run: uv sync
 
       - name: Lint API (ruff)
-        run: uvx ruff check api
+        run: uvx ruff@0.16.6 check api
 
       - name: Run API tests
         run: uv run pytest tests/ -v

@@ -11,13 +11,11 @@ import html
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 from urllib.parse import unquote
 
+import config
 import requests
 import wikipediaapi
-
-import config
 from net import DEFAULT_USER_AGENT, get_with_retry
 
 log = logging.getLogger(__name__)
@@ -432,7 +430,7 @@ def is_valid_botanical(wiki_data: dict) -> bool:
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
-def research(category: str, common_name: str) -> Optional[ResearchResult]:
+def research(category: str, common_name: str) -> ResearchResult | None:
     """
     Run the full research pipeline for an organism.
     Returns None if the species fails validation (botanical without Uses section).
@@ -443,14 +441,13 @@ def research(category: str, common_name: str) -> Optional[ResearchResult]:
     wiki_data = _get_wikipedia(common_name, category)
 
     # 2. Botanical validation
-    if category == "botanical":
-        if not is_valid_botanical(wiki_data):
-            log.info(
-                "'%s' has no Uses section – not a valid botanical. "
-                "Caller should pick another species.",
-                common_name
-            )
-            return None
+    if category == "botanical" and not is_valid_botanical(wiki_data):
+        log.info(
+            "'%s' has no Uses section – not a valid botanical. "
+            "Caller should pick another species.",
+            common_name
+        )
+        return None
 
     # 3. iNaturalist
     inat_data = _get_inaturalist(common_name, category)

@@ -13,13 +13,11 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Optional
-
-import requests
-from openai import OpenAI
 
 import config
+import requests
 from net import get_with_retry
+from openai import OpenAI
 from research import Photo, ResearchResult
 
 log = logging.getLogger(__name__)
@@ -51,15 +49,15 @@ class ImageVerdict:
 
 @dataclass
 class SelectionResult:
-    photo: Optional[Photo]                 # chosen photo (None if no candidates)
-    verdict: Optional[ImageVerdict]        # verdict for the chosen photo
+    photo: Photo | None                 # chosen photo (None if no candidates)
+    verdict: ImageVerdict | None        # verdict for the chosen photo
     approved: bool                         # did the chosen photo clear the bar?
     reviews: list[dict] = field(default_factory=list)  # log of every review
 
 
 # ── Image download ──────────────────────────────────────────────────────────────
 
-def _download_data_url(url: str) -> Optional[str]:
+def _download_data_url(url: str) -> str | None:
     """Download an image and return it as a base64 data URL, or None on failure."""
     try:
         resp = get_with_retry(
@@ -142,7 +140,7 @@ def _parse_verdict(raw: str, photo: Photo) -> ImageVerdict:
     )
 
 
-def review_photo(photo: Photo, r: ResearchResult) -> Optional[ImageVerdict]:
+def review_photo(photo: Photo, r: ResearchResult) -> ImageVerdict | None:
     """Run one candidate through the vision model. Returns None if it can't be reviewed."""
     data_url = _download_data_url(photo.url)
     if data_url is None:
@@ -195,8 +193,8 @@ def select_best_photo(r: ResearchResult) -> SelectionResult:
         )
 
     reviews: list[dict] = []
-    best_photo: Optional[Photo] = None
-    best_verdict: Optional[ImageVerdict] = None
+    best_photo: Photo | None = None
+    best_verdict: ImageVerdict | None = None
 
     for photo in candidates:
         verdict = review_photo(photo, r)

@@ -15,9 +15,8 @@ import math
 import time
 from pathlib import Path
 
-import requests
-
 import config
+import requests
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ def _require_instagram_config() -> None:
         ) if not val
     ]
     if missing:
-        raise EnvironmentError(
+        raise OSError(
             f"Missing required environment variable(s): {', '.join(missing)}\n"
             f"See .env.example for setup instructions."
         )
@@ -152,10 +151,10 @@ def post_instagram_reel(video_path: Path, caption: str) -> str:
     )
     try:
         upload_resp.raise_for_status()
-    except requests.HTTPError:
+    except requests.HTTPError as err:
         raise RuntimeError(
             f"Instagram Reel upload failed {upload_resp.status_code}: {upload_resp.text}"
-        )
+        ) from err
     if not upload_resp.json().get("success"):
         raise RuntimeError(f"Instagram Reel upload did not succeed: {upload_resp.text}")
 
@@ -194,8 +193,10 @@ def _wait_for_instagram_container(container_id: str, token: str, timeout: int = 
 def _check_ig_response(resp: requests.Response) -> None:
     try:
         resp.raise_for_status()
-    except requests.HTTPError:
-        raise RuntimeError(f"Instagram API error {resp.status_code}: {resp.text}")
+    except requests.HTTPError as err:
+        raise RuntimeError(
+            f"Instagram API error {resp.status_code}: {resp.text}"
+        ) from err
     body = resp.json()
     if "error" in body:
         err = body["error"]
@@ -230,7 +231,7 @@ def post_tiktok_photo(image_url: str, caption: str) -> str:
         publish_id string.
     """
     if not config.TIKTOK_ACCESS_TOKEN:
-        raise EnvironmentError(
+        raise OSError(
             "Missing required environment variable: TIKTOK_ACCESS_TOKEN\n"
             "Run `python tiktok_auth.py --save-env` to generate one, or see "
             ".env.example for setup instructions."
@@ -288,7 +289,7 @@ def post_tiktok_video(video_path: Path, caption: str) -> str:
         publish_id string.
     """
     if not config.TIKTOK_ACCESS_TOKEN:
-        raise EnvironmentError(
+        raise OSError(
             "Missing required environment variable: TIKTOK_ACCESS_TOKEN\n"
             "Run `python tiktok_auth.py --save-env` to generate one, or see "
             ".env.example for setup instructions."
@@ -392,8 +393,10 @@ def _wait_for_tiktok_publish(publish_id: str, headers: dict, timeout: int = 300)
 def _check_tt_response(resp: requests.Response) -> None:
     try:
         resp.raise_for_status()
-    except requests.HTTPError:
-        raise RuntimeError(f"TikTok API error {resp.status_code}: {resp.text}")
+    except requests.HTTPError as err:
+        raise RuntimeError(
+            f"TikTok API error {resp.status_code}: {resp.text}"
+        ) from err
     body = resp.json()
     error = body.get("error", {})
     if error.get("code") not in (None, "ok"):

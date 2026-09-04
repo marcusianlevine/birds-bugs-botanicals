@@ -39,9 +39,8 @@ import random
 import sys
 from pathlib import Path
 
-import requests
-
 import config
+import requests
 from net import get_with_retry
 
 log = logging.getLogger("discover")

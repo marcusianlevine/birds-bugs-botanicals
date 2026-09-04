@@ -3,9 +3,8 @@
 import json
 import random
 
-import pytest
-
 import config
+import pytest
 import species_discovery as sd
 
 

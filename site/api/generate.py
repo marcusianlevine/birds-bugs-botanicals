@@ -51,10 +51,10 @@ def _find_pipeline_dir() -> Path:
 sys.path.insert(0, str(Path(__file__).parent / "_lib"))
 sys.path.insert(0, str(_find_pipeline_dir()))
 
-from webauth import check_admin_password  # noqa: E402
-import research as research_mod  # noqa: E402
-import image_reviewer  # noqa: E402
 import content_generator  # noqa: E402
+import image_reviewer  # noqa: E402
+import research as research_mod  # noqa: E402
+from webauth import check_admin_password  # noqa: E402
 
 app = Flask(__name__)
 

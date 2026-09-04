@@ -11,8 +11,8 @@ Strategy:
 """
 
 import json
-import random
 import logging
+import random
 from dataclasses import dataclass, field
 from datetime import date
 

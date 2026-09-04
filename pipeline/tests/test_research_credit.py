@@ -1,7 +1,6 @@
 """Unit tests for Wikimedia photo-credit extraction in research.py."""
 
 import requests
-
 import research
 from research import _strip_html, _wikimedia_image_credit
 

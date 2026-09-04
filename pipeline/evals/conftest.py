@@ -81,9 +81,9 @@ def generated_content(request):
 
 def _generate_live() -> dict:
     """Run the pipeline and return content as a plain dict."""
-    from species_selector import pick_today
-    from research import research
     from content_generator import generate_content, get_required_tags
+    from research import research
+    from species_selector import pick_today
 
     for _ in range(10):
         sel = pick_today()

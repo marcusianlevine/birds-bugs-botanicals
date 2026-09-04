@@ -20,10 +20,9 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+import config
 import requests
 import wavespeed
-
-import config
 
 log = logging.getLogger(__name__)
 
@@ -92,7 +91,7 @@ def generate_video(image_url: str, prompt: str, output_path: Path) -> GeneratedV
         TimeoutError  if generation exceeds config.WAVESPEED_TIMEOUT seconds.
     """
     if not config.WAVESPEED_API_KEY:
-        raise EnvironmentError(
+        raise OSError(
             "Missing required environment variable: WAVESPEED_API_KEY\n"
             "See .env.example for setup instructions."
         )

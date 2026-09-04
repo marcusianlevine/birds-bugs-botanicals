@@ -3,11 +3,10 @@ pool-exhaustion → discovery flow."""
 
 import json
 
-import pytest
-
 import config
-import species_selector as ss
+import pytest
 import species_discovery as sd
+import species_selector as ss
 
 
 @pytest.fixture

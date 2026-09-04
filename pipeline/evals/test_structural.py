@@ -8,15 +8,13 @@ Run: pytest evals/test_structural.py -v
 import sys
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from evals.checks import (
     check_instagram_caption,
-    check_tiktok_script,
     check_tiktok_caption,
+    check_tiktok_script,
     check_video_prompt,
 )
-
 
 # ---------------------------------------------------------------------------
 # Instagram caption

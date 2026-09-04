@@ -11,11 +11,9 @@ Generates:
 import json
 import logging
 from dataclasses import dataclass
-from typing import Optional
-
-from openai import OpenAI
 
 import config
+from openai import OpenAI
 from research import Photo, ResearchResult
 
 log = logging.getLogger(__name__)
@@ -50,7 +48,7 @@ def ensure_hashtags(text: str, required_tags: list[str]) -> str:
 
 # ── Attribution / source footer ────────────────────────────────────────────────
 
-def format_photo_credit(photo: Optional[Photo]) -> str:
+def format_photo_credit(photo: Photo | None) -> str:
     """
     Human-readable photo credit: the photographer/author when known, plus where
     the image was pulled from. Avoids repeating the source when the attribution
@@ -71,7 +69,7 @@ def format_photo_credit(photo: Optional[Photo]) -> str:
     return credit
 
 
-def build_caption_footer(r: ResearchResult, photo: Optional[Photo]) -> str:
+def build_caption_footer(r: ResearchResult, photo: Photo | None) -> str:
     """A source block appended to every posted caption: Wikipedia link + credit."""
     lines: list[str] = []
     if r.wikipedia_url:
@@ -283,7 +281,7 @@ def _build_alt_text_prompt(r: ResearchResult) -> str:
 
 # ── Main generator ─────────────────────────────────────────────────────────────
 
-def generate_content(r: ResearchResult, photo: Optional[Photo] = None) -> GeneratedContent:
+def generate_content(r: ResearchResult, photo: Photo | None = None) -> GeneratedContent:
     """
     Call Claude to generate all post copy for the organism.
 

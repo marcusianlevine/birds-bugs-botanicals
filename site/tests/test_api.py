@@ -166,7 +166,7 @@ class TestPostEndpoint:
         )
         assert resp.status_code == 200
         body = resp.get_json()
-        assert body["status"] == "sent_to_tiktok"
+        assert body["status"] == "posted_to_tiktok"
         assert body["publish_id"] == "pub123"
 
     def test_tiktok_api_error(self, post_module, monkeypatch):

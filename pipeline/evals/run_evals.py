@@ -28,9 +28,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import config
-from species_selector import pick_today
-from research import research
 from content_generator import generate_content, get_required_tags
+from research import research
+from species_selector import pick_today
+
 from evals.checks import run_all_checks
 from evals.judge import judge_instagram, judge_tiktok
 

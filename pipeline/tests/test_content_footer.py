@@ -1,9 +1,9 @@
 """Unit tests for the caption source footer (Wikipedia link + photo credit)."""
 
 from content_generator import (
-    format_photo_credit,
-    build_caption_footer,
     _append_footer,
+    build_caption_footer,
+    format_photo_credit,
 )
 from research import Photo, ResearchResult
 
