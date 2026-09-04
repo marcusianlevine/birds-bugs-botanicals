@@ -390,13 +390,26 @@ def _get_ebird_photos(species_code: str, limit: int = 5) -> list[Photo]:
             params=params,
             timeout=15,
         )
-        results = resp.json().get("results", {}).get("content", [])
+        payload = resp.json()
     except (requests.RequestException, ValueError) as e:
         log.warning("eBird/Macaulay photo search failed: %s", e)
         return []
 
+    # Normal shape is {"results": {"content": [...]}}, but the API has been seen
+    # to return a bare list (and could return an error object); tolerate any
+    # shape rather than raising - this fetch is best-effort.
+    if isinstance(payload, list):
+        results = payload
+    elif isinstance(payload, dict):
+        inner = payload.get("results", {})
+        results = inner.get("content", []) if isinstance(inner, dict) else []
+    else:
+        results = []
+
     photos: list[Photo] = []
     for item in results:
+        if not isinstance(item, dict):
+            continue
         asset_id = item.get("assetId")
         if not asset_id:
             continue
