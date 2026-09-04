@@ -405,6 +405,9 @@ def _get_ebird_photos(species_code: str, limit: int = 5) -> list[Photo]:
         results = inner.get("content", []) if isinstance(inner, dict) else []
     else:
         results = []
+    # `content` may be present but explicitly null, or some other scalar.
+    if not isinstance(results, list):
+        results = []
 
     photos: list[Photo] = []
     for item in results:

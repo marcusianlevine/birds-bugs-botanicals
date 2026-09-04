@@ -44,7 +44,16 @@ class TestGetEbirdPhotos:
         assert "12345" in photos[0].url
 
     def test_unexpected_shape_returns_empty(self, monkeypatch):
-        for payload in ("nope", 42, None, {"results": []}, [123, "x"]):
+        for payload in (
+            "nope",
+            42,
+            None,
+            {"results": []},
+            [123, "x"],
+            {"results": {"content": None}},
+            {"results": {"content": 0}},
+            {"results": None},
+        ):
             monkeypatch.setattr(
                 research, "get_with_retry", lambda *a, _p=payload, **k: _FakeResp(_p)
             )
