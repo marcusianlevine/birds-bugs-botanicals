@@ -16,6 +16,9 @@ Generate everything (including Kling video) but skip posting:
 Dry run (skip video generation AND posting — fast, cheap):
   python main.py --dry-run
 
+Post to Instagram only (e.g. while the TikTok app is pending approval):
+  python main.py --no-tiktok
+
 Everything is saved to output/<YYYY-MM-DD>/ regardless of mode.
 """
 
@@ -25,6 +28,7 @@ import logging
 import sys
 from datetime import date
 from pathlib import Path
+from urllib.parse import quote
 
 
 import config
@@ -39,9 +43,11 @@ from species_selector import (
 from research import research, ResearchResult
 from image_reviewer import select_best_photo
 from content_generator import generate_content, GeneratedContent
-from video_generator import generate_video
+from video_generator import generate_video, GeneratedVideo
 from social_media import (
     post_instagram_photo,
+    post_instagram_reel,
+    post_tiktok_photo,
     post_tiktok_video,
 )
 
@@ -193,11 +199,34 @@ def _find_good_photo(result: ResearchResult, common_name: str):
     return None
 
 
+def _tiktok_pull_url(image_url: str) -> str:
+    """
+    Build the URL TikTok will PULL_FROM_URL for a photo post.
+
+    TikTok requires the URL's domain to be verified in your app. If a verified
+    site base URL is configured (config.MEDIA_PROXY_BASE_URL) we route the image
+    through its /api/photo-proxy; otherwise we fall back to the raw URL and warn
+    (which only succeeds if that source domain is itself verified).
+    """
+    base = config.MEDIA_PROXY_BASE_URL.rstrip("/")
+    if base:
+        return f"{base}/api/photo-proxy?src={quote(image_url, safe='')}"
+    log.warning(
+        "MEDIA_PROXY_BASE_URL is not set — passing the raw image URL to TikTok. "
+        "TikTok photo posts require the URL's domain to be verified in your app; "
+        "set MEDIA_PROXY_BASE_URL to your deployed site to route through "
+        "/api/photo-proxy."
+    )
+    return image_url
+
+
 def run(
     category: str | None = None,
     dry_run: bool = False,
     no_post: bool = False,
     species: str | None = None,
+    mode: str = "photo",
+    no_tiktok: bool = False,
 ) -> None:
     out_dir = make_output_dir()
     log.info("Output directory: %s", out_dir)
@@ -297,59 +326,66 @@ def run(
     # ── 4. Generate post copy ──────────────────────────────────────────────────
     content = generate_content(result, photo=best_photo)
 
-    # ── 5. Generate TikTok video via Kling AI ─────────────────────────────────
+    # ── 5. Generate the animated video (video mode only) ──────────────────────
     posting_result: dict = {}
-    video_path: Path | None = None
+    video: GeneratedVideo | None = None
 
-    if not dry_run:
-        # Pass the iNaturalist URL directly to Kling — no hosting step needed
+    if mode == "video" and not dry_run:
         try:
-            video_path = generate_video(
+            video = generate_video(
                 image_url=image_url,
                 prompt=content.video_prompt,
                 output_path=out_dir / "tiktok_video.mp4",
             )
         except Exception as e:
             log.error("Video generation failed: %s", e)
-            log.warning("Continuing without video – TikTok post will be skipped.")
-            video_path = None
+            log.warning("Continuing without video – video posts will be skipped.")
+            video = None
 
-    # ── 6. Post to Instagram (pass iNaturalist URL directly) ──────────────────
+    # ── 6. Post to Instagram (photo, or Reel in video mode) ───────────────────
     if not dry_run and not no_post:
         try:
-            ig_media_id = post_instagram_photo(
-                image_url=image_url,
-                caption=content.instagram_caption,
-                alt_text=content.alt_text,
-            )
+            if mode == "video":
+                if video is None or not video.path.exists():
+                    raise RuntimeError("video generation failed – nothing to post")
+                # Upload the local file (soundscape muxed in), not the raw
+                # silent WaveSpeed URL.
+                ig_media_id = post_instagram_reel(
+                    video_path=video.path,
+                    caption=content.instagram_caption,
+                )
+            else:
+                ig_media_id = post_instagram_photo(
+                    image_url=image_url,
+                    caption=content.instagram_caption,
+                    alt_text=content.alt_text,
+                )
             posting_result["instagram"] = {"status": "posted", "media_id": ig_media_id}
-            log.info("Instagram: posted ✓ (media_id=%s)", ig_media_id)
+            log.info("Instagram: posted ✓ (%s, media_id=%s)", mode, ig_media_id)
         except Exception as e:
             log.error("Instagram posting failed: %s", e)
             posting_result["instagram"] = {"status": "failed", "error": str(e)}
 
-    # ── 7. Post to TikTok (direct chunk-upload from local file) ───────────────
-    if not dry_run and not no_post:
-        if video_path and video_path.exists():
-            try:
+    # ── 7. Post to TikTok (photo via PULL_FROM_URL, or video via FILE_UPLOAD) ──
+    if not dry_run and not no_post and not no_tiktok:
+        try:
+            if mode == "video":
+                if not (video and video.path.exists()):
+                    raise RuntimeError("video generation failed – nothing to post")
                 tt_publish_id = post_tiktok_video(
-                    video_path=video_path,
+                    video_path=video.path,
                     caption=content.tiktok_caption,
                 )
-                posting_result["tiktok"] = {
-                    "status": "posted",
-                    "publish_id": tt_publish_id,
-                }
-                log.info("TikTok: posted ✓ (publish_id=%s)", tt_publish_id)
-            except Exception as e:
-                log.error("TikTok posting failed: %s", e)
-                posting_result["tiktok"] = {"status": "failed", "error": str(e)}
-        else:
-            log.warning("No video available – skipping TikTok post.")
-            posting_result["tiktok"] = {
-                "status": "skipped",
-                "reason": "video generation failed",
-            }
+            else:
+                tt_publish_id = post_tiktok_photo(
+                    image_url=_tiktok_pull_url(image_url),
+                    caption=content.tiktok_caption,
+                )
+            posting_result["tiktok"] = {"status": "posted", "publish_id": tt_publish_id}
+            log.info("TikTok: posted ✓ (%s, publish_id=%s)", mode, tt_publish_id)
+        except Exception as e:
+            log.error("TikTok posting failed: %s", e)
+            posting_result["tiktok"] = {"status": "failed", "error": str(e)}
 
     # ── 8. Save all outputs ────────────────────────────────────────────────────
     save_outputs(out_dir, selection, result, content, posting_result,
@@ -366,13 +402,16 @@ def run(
     log.info("Pipeline complete!")
     log.info("  Organism : %s (%s)", selection.common_name, result.scientific_name or "unknown")
     log.info("  Category : %s", selection.category)
+    log.info("  Post type: %s", mode)
     if dry_run:
-        log.info("  Mode     : DRY RUN – nothing posted, no video generated")
+        log.info("  Mode     : DRY RUN – nothing posted, no media generated")
     elif no_post:
-        log.info("  Mode     : NO-POST – video generated, nothing posted")
+        log.info("  Mode     : NO-POST – nothing posted")
     else:
         for platform, res in posting_result.items():
             log.info("  %-12s: %s", platform.capitalize(), res.get("status", "?"))
+        if no_tiktok:
+            log.info("  %-12s: %s", "Tiktok", "skipped (--no-tiktok)")
     log.info("  Output   : %s", out_dir)
     log.info("=" * 60)
 
@@ -405,9 +444,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--no-post",
         action="store_true",
-        help="Generate everything including Kling video, but skip posting",
+        help="Generate everything (incl. video in video mode) but skip posting",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["photo", "video"],
+        default="photo",
+        help="What to post to Instagram and TikTok: 'photo' (default, no video "
+             "generation) or 'video' (generate and post the animated clip)",
+    )
+    parser.add_argument(
+        "--no-tiktok",
+        action="store_true",
+        help="Skip posting to TikTok (e.g. while the TikTok app is still pending "
+             "approval). Instagram posting is unaffected.",
     )
     args = parser.parse_args()
 
     run(category=args.category, dry_run=args.dry_run, no_post=args.no_post,
-        species=args.species)
+        species=args.species, mode=args.mode, no_tiktok=args.no_tiktok)

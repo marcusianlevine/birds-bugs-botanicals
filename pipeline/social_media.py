@@ -3,10 +3,11 @@ social_media.py - publish content to Instagram and TikTok.
 
 Instagram: Meta Graph API v21
   -> photo posts use the iNaturalist image URL directly (already public HTTPS)
+  -> reels need a public video URL (see main.py's video mode)
 
 TikTok: Content Posting API v2
   -> videos are uploaded directly in chunks (FILE_UPLOAD source type)
-  -> no public hosting required
+  -> photos use DIRECT_POST + PULL_FROM_URL from a verified domain
 """
 
 import logging
@@ -21,6 +22,12 @@ import config
 log = logging.getLogger(__name__)
 
 TIKTOK_CHUNK_SIZE = 10 * 1024 * 1024    # 10 MB per chunk
+
+# Instagram resumable-upload endpoint (for posting a local video file rather
+# than a hosted URL). The API version is taken from INSTAGRAM_GRAPH_URL so the
+# two stay in lockstep.
+_IG_API_VERSION = config.INSTAGRAM_GRAPH_URL.rstrip("/").rsplit("/", 1)[-1]
+IG_RUPLOAD_URL = f"https://rupload.facebook.com/ig-api-upload/{_IG_API_VERSION}"
 
 
 def _require_instagram_config() -> None:
@@ -92,34 +99,65 @@ def post_instagram_photo(image_url: str, caption: str, alt_text: str = "") -> st
     return media_id
 
 
-def post_instagram_reel(video_url: str, caption: str) -> str:
+def post_instagram_reel(video_path: Path, caption: str) -> str:
     """
-    Publish a Reel to Instagram using a public video URL.
+    Publish a Reel to Instagram by uploading a local video file.
+
+    Uses the Graph API's resumable upload (upload_type=resumable) so we can send
+    the on-disk MP4 directly — the same file TikTok gets, with the soundscape
+    already muxed in. (The hosted WaveSpeed URL is the raw, silent clip, so we
+    can't use the simpler video_url flow without losing the audio.)
+
+    Args:
+        video_path: Path to the finished local .mp4 (soundscape included).
+        caption:    Post caption including hashtags.
 
     Returns:
         Published media ID string.
     """
     _require_instagram_config()
+    if not video_path.exists():
+        raise FileNotFoundError(f"Reel video not found: {video_path}")
     account_id = config.INSTAGRAM_ACCOUNT_ID
     token = config.INSTAGRAM_ACCESS_TOKEN
 
-    log.info("Creating Instagram Reel container...")
-    payload = {
-        "media_type": "REELS",
-        "video_url": video_url,
-        "caption": caption,
-        "share_to_feed": "true",
-        "access_token": token,
-    }
-
+    log.info("Creating Instagram Reel container (resumable upload)...")
     resp = requests.post(
         f"{config.INSTAGRAM_GRAPH_URL}/{account_id}/media",
-        data=payload,
+        data={
+            "media_type": "REELS",
+            "upload_type": "resumable",
+            "caption": caption,
+            "share_to_feed": "true",
+            "access_token": token,
+        },
         timeout=30,
     )
     _check_ig_response(resp)
     container_id = resp.json()["id"]
     log.info("Instagram Reel container created: %s", container_id)
+
+    video_bytes = video_path.read_bytes()
+    log.info("Uploading Reel video (%.1f MB) to container %s...",
+             len(video_bytes) / 1_048_576, container_id)
+    upload_resp = requests.post(
+        f"{IG_RUPLOAD_URL}/{container_id}",
+        headers={
+            "Authorization": f"OAuth {token}",
+            "offset": "0",
+            "file_size": str(len(video_bytes)),
+        },
+        data=video_bytes,
+        timeout=300,
+    )
+    try:
+        upload_resp.raise_for_status()
+    except requests.HTTPError:
+        raise RuntimeError(
+            f"Instagram Reel upload failed {upload_resp.status_code}: {upload_resp.text}"
+        )
+    if not upload_resp.json().get("success"):
+        raise RuntimeError(f"Instagram Reel upload did not succeed: {upload_resp.text}")
 
     _wait_for_instagram_container(container_id, token)
 
@@ -174,6 +212,70 @@ def _check_ig_response(resp: requests.Response) -> None:
 #   3. POST /v2/post/publish/status/fetch/  { publish_id }
 #      -> poll until status == PUBLISH_COMPLETE
 
+def post_tiktok_photo(image_url: str, caption: str) -> str:
+    """
+    Publish a photo to TikTok via the Content Posting API (DIRECT_POST).
+
+    TikTok photo posts only support source=PULL_FROM_URL, and the URL's domain
+    must be verified in your TikTok app. Pass a URL on a verified domain — see
+    config.MEDIA_PROXY_BASE_URL and main.py, which route images through the
+    site's /api/photo-proxy. privacy_level comes from config.TIKTOK_PRIVACY_LEVEL
+    (SELF_ONLY for unaudited/Sandbox clients).
+
+    Args:
+        image_url: Publicly accessible HTTPS image URL on a verified domain.
+        caption:   Post caption (title is capped at 90 chars).
+
+    Returns:
+        publish_id string.
+    """
+    if not config.TIKTOK_ACCESS_TOKEN:
+        raise EnvironmentError(
+            "Missing required environment variable: TIKTOK_ACCESS_TOKEN\n"
+            "Run `python tiktok_auth.py --save-env` to generate one, or see "
+            ".env.example for setup instructions."
+        )
+    token = config.TIKTOK_ACCESS_TOKEN
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json; charset=UTF-8",
+    }
+
+    log.info("Initiating TikTok photo DIRECT_POST (PULL_FROM_URL)...")
+    payload = {
+        "post_info": {
+            "title": caption[:90],
+            "privacy_level": config.TIKTOK_PRIVACY_LEVEL,
+            "disable_comment": False,
+            # Both brand toggles are required for DIRECT_POST.
+            "brand_content_toggle": False,
+            "brand_organic_toggle": False,
+        },
+        "source_info": {
+            "source": "PULL_FROM_URL",
+            "photo_cover_index": 0,
+            "photo_images": [image_url],
+        },
+        "post_mode": "DIRECT_POST",
+        "media_type": "PHOTO",
+    }
+
+    resp = requests.post(
+        f"{config.TIKTOK_BASE_URL}/post/publish/content/init/",
+        json=payload,
+        headers=headers,
+        timeout=30,
+    )
+    _check_tt_response(resp)
+    publish_id = resp.json().get("data", {}).get("publish_id")
+    if not publish_id:
+        raise RuntimeError(f"TikTok init did not return a publish_id: {resp.json()}")
+    log.info("TikTok photo publish_id: %s", publish_id)
+
+    _wait_for_tiktok_publish(publish_id, headers)
+    return publish_id
+
+
 def post_tiktok_video(video_path: Path, caption: str) -> str:
     """
     Upload a local MP4 and publish it to TikTok.
@@ -209,7 +311,7 @@ def post_tiktok_video(video_path: Path, caption: str) -> str:
     init_payload = {
         "post_info": {
             "title": caption[:150],
-            "privacy_level": "PUBLIC_TO_EVERYONE",
+            "privacy_level": config.TIKTOK_PRIVACY_LEVEL,
             "disable_duet": False,
             "disable_comment": False,
             "disable_stitch": False,

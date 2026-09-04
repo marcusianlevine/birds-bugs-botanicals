@@ -35,7 +35,7 @@ load_dotenv(Path(__file__).parent / ".env")
 AUTH_URL  = "https://www.tiktok.com/v2/auth/authorize/"
 TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 
-REDIRECT_URI = "http://localhost:8080/callback"
+REDIRECT_URI = "https://tigress-tightrope-flattop.ngrok-free.dev/callback"
 SCOPES       = "video.publish,video.upload"
 
 

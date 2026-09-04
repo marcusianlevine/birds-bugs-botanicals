@@ -1,0 +1,118 @@
+name: Daily post
+
+on:
+  schedule:
+    # 14:00 UTC daily (10:00 ET / 07:00 PT). GitHub's scheduler can lag a few
+    # minutes at peak; adjust the hour to taste.
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+    inputs:
+      category:
+        description: "Force a category (blank = weighted random)"
+        type: choice
+        options: ["", "bird", "bug", "botanical"]
+        default: ""
+      mode:
+        description: "photo (default) or video"
+        type: choice
+        options: ["photo", "video"]
+        default: "photo"
+      dry_run:
+        description: "Dry run — generate only, post nothing"
+        type: boolean
+        default: false
+
+# Never let two runs post at once; queue instead of cancelling.
+concurrency:
+  group: daily-post
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    env:
+      # Content generation
+      OLLAMA_API_KEY: ${{ secrets.OLLAMA_API_KEY }}
+      # Required by pipeline/config.py at import time (even with --no-tiktok)
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      # Instagram Graph API
+      INSTAGRAM_APP_ID: ${{ secrets.INSTAGRAM_APP_ID }}
+      INSTAGRAM_APP_SECRET: ${{ secrets.INSTAGRAM_APP_SECRET }}
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_ACCOUNT_ID: ${{ secrets.INSTAGRAM_ACCOUNT_ID }}
+      # Optional: birds fall back to fewer photo sources without this
+      EBIRD_API_KEY: ${{ secrets.EBIRD_API_KEY }}
+      # Optional: only used by --mode video
+      WAVESPEED_API_KEY: ${{ secrets.WAVESPEED_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pipeline/uv.lock"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Refresh Instagram long-lived token
+        id: ig
+        continue-on-error: true
+        run: uv run python instagram_auth.py --refresh
+
+      - name: Push refreshed token to repo secrets
+        if: steps.ig.outputs.access_token != ''
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_REPO: ${{ github.repository }}
+        run: gh secret set INSTAGRAM_ACCESS_TOKEN --body "${{ steps.ig.outputs.access_token }}"
+
+      - name: Build pipeline args
+        id: args
+        run: |
+          # TODO(tiktok): once the TikTok app passes audit, drop `--no-tiktok`
+          # here AND add the repo secret TIKTOK_PRIVACY_LEVEL=PUBLIC_TO_EVERYONE
+          # (config.py defaults it to SELF_ONLY, so without it every TikTok post
+          # publishes as private). Also add TIKTOK_ACCESS_TOKEN to the job env.
+          args="--no-tiktok"
+          [ "${{ inputs.dry_run }}" = "true" ] && args="$args --dry-run"
+          [ "${{ inputs.mode }}" = "video" ] && args="$args --mode video"
+          [ -n "${{ inputs.category }}" ] && args="$args --category ${{ inputs.category }}"
+          echo "value=$args" >> "$GITHUB_OUTPUT"
+
+      - name: Run pipeline
+        env:
+          # Use the token just refreshed this run; fall back to the stored
+          # secret if the refresh step failed (continue-on-error above).
+          INSTAGRAM_ACCESS_TOKEN: ${{ steps.ig.outputs.access_token || secrets.INSTAGRAM_ACCESS_TOKEN }}
+        run: uv run python main.py ${{ steps.args.outputs.value }}
+
+      - name: Commit updated pipeline state
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/posted_history.json data/rejected_species.json data/species_pools.json
+          if git diff --cached --quiet; then
+            echo "No state changes to commit."
+          else
+            git commit -m "chore: update pipeline state [skip ci]"
+            git pull --rebase --autostash origin ${{ github.ref_name }}
+            git push
+          fi
+
+      - name: Upload run outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-output-${{ github.run_id }}
+          path: pipeline/output/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -62,6 +62,19 @@ TIKTOK_CLIENT_KEY    = _require("TIKTOK_CLIENT_KEY")
 TIKTOK_CLIENT_SECRET = _require("TIKTOK_CLIENT_SECRET")
 TIKTOK_BASE_URL      = "https://open.tiktokapis.com/v2"
 
+# TikTok post visibility. Unaudited/Sandbox clients can only post SELF_ONLY
+# (private); switch to PUBLIC_TO_EVERYONE (or another allowed value) once your
+# client passes TikTok's audit. Applies to both photo and video posts.
+TIKTOK_PRIVACY_LEVEL = _optional("TIKTOK_PRIVACY_LEVEL", "SELF_ONLY")
+
+# Public, TikTok-verified domain used to serve photos to TikTok via
+# PULL_FROM_URL (photo posts require a verified URL domain). Set this to your
+# deployed site's base URL (e.g. https://your-site.vercel.app); the pipeline
+# routes the image through its /api/photo-proxy so TikTok fetches from your
+# verified domain. If empty, the raw image URL is used, which only works if
+# that source domain is itself verified in your TikTok app.
+MEDIA_PROXY_BASE_URL = _optional("MEDIA_PROXY_BASE_URL", "")
+
 # -- eBird --------------------------------------------------------------------------
 # Optional: research.py's eBird lookup is already best-effort (wrapped in
 # try/except), so a missing key just means birds skip that photo source

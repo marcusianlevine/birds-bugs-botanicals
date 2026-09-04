@@ -24,6 +24,10 @@ RUN := uv run
 # inferred). Either, both, or neither may be set.
 SPECIES  ?=
 CATEGORY ?=
+# MODE selects what gets posted to Instagram and TikTok:
+#   photo (default) — post the still photo, no video generation
+#   video           — generate the animated clip and post it to both
+MODE     ?= photo
 FEATURE_OPTS := $(if $(SPECIES),--species "$(SPECIES)",) $(if $(CATEGORY),--category "$(CATEGORY)",)
 
 # ── Setup ──────────────────────────────────────────────────────────────────────
@@ -38,11 +42,11 @@ setup:           ## Create .venv and install all deps (runtime + dev) from pypro
 dry-run:         ## Generate content + captions only (no video, no posting) — fast. Optional: SPECIES=, CATEGORY=
 	$(RUN) python main.py --dry-run $(FEATURE_OPTS)
 
-generate:        ## Generate everything including Kling video — no posting. Optional: SPECIES=, CATEGORY=
-	$(RUN) python main.py --no-post $(FEATURE_OPTS)
+generate:        ## Generate content (+ video if MODE=video) — no posting. Optional: MODE=video, SPECIES=, CATEGORY=
+	$(RUN) python main.py --no-post --mode $(MODE) $(FEATURE_OPTS)
 
-run:             ## Run the full pipeline — generate + post to Instagram & TikTok. Optional: SPECIES=, CATEGORY=
-	$(RUN) python main.py $(FEATURE_OPTS)
+run:             ## Post to Instagram & TikTok — photos by default. Optional: MODE=video, SPECIES=, CATEGORY=
+	$(RUN) python main.py --mode $(MODE) $(FEATURE_OPTS)
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 
@@ -104,7 +108,8 @@ help:
 	@echo ""
 	@echo "Feature a specific organism:"
 	@echo "  make dry-run SPECIES=\"Barn Owl\"     (test copy for one species)"
-	@echo "  make run CATEGORY=bird               (post a random bird)"
+	@echo "  make run CATEGORY=bird               (post a random bird photo)"
+	@echo "  make run MODE=video                  (post the animated video instead)"
 	@echo ""
 	@echo "Typical first-time setup:"
 	@echo "  1. make setup"

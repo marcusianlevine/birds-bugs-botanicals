@@ -17,6 +17,7 @@ import random
 import shutil
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import requests
@@ -25,6 +26,20 @@ import wavespeed
 import config
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class GeneratedVideo:
+    """Result of generate_video().
+
+    path:       local .mp4 with the soundscape muxed in. This is what both
+                TikTok (FILE_UPLOAD) and Instagram (resumable upload) send, so
+                the posted clip always has the audio.
+    source_url: the public WaveSpeed URL of the raw, pre-soundscape (silent)
+                clip. Kept for reference/debugging; not used for posting.
+    """
+    path: Path
+    source_url: str
 
 
 def _resolve_image_url(image_url: str) -> str:
@@ -59,7 +74,7 @@ def _upload_image(image_url: str) -> str:
     return hosted_url
 
 
-def generate_video(image_url: str, prompt: str, output_path: Path) -> Path:
+def generate_video(image_url: str, prompt: str, output_path: Path) -> GeneratedVideo:
     """
     Generate a short video from a still image using WaveSpeed AI, then save it.
 
@@ -69,7 +84,8 @@ def generate_video(image_url: str, prompt: str, output_path: Path) -> Path:
         output_path: Where to save the finished MP4.
 
     Returns:
-        Path to the saved MP4 file.
+        GeneratedVideo with the local .mp4 path (soundscape muxed in) and the
+        public WaveSpeed source URL.
 
     Raises:
         RuntimeError  if the API call fails or returns no video.
@@ -134,7 +150,7 @@ def generate_video(image_url: str, prompt: str, output_path: Path) -> Path:
     if config.SOUNDSCAPE_ENABLED:
         _add_soundscape(saved)
 
-    return saved
+    return GeneratedVideo(path=saved, source_url=video_url)
 
 
 def _download_video(video_url: str, output_path: Path) -> Path:

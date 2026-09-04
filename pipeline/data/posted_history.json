@@ -1,9 +1,18 @@
 {
-  "bird": [],
+  "bird": [
+    {
+      "name": "Kingfisher",
+      "date": "2026-07-17"
+    }
+  ],
   "bug": [
     {
       "name": "Painted Lady Butterfly",
       "date": "2026-07-14"
+    },
+    {
+      "name": "Praying Mantis",
+      "date": "2026-08-21"
     }
   ],
   "botanical": []

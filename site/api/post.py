@@ -4,10 +4,11 @@
 Uses TikTok's Content Posting API v2 (/v2/post/publish/content/init/) with
 source PULL_FROM_URL, pointed at our own /api/photo-proxy so TikTok fetches
 the image from our verified domain rather than the original Wikipedia/
-iNaturalist/eBird source. post_mode is MEDIA_UPLOAD (sends to the TikTok
-inbox for the account owner to review and finish publishing in-app) rather
-than DIRECT_POST, since DIRECT_POST requires separate approval from TikTok
-that this app doesn't have yet.
+iNaturalist/eBird source. post_mode is DIRECT_POST with privacy_level
+SELF_ONLY: unaudited clients (including Sandbox apps) may direct-post, but
+TikTok forces the visibility to private until the client passes app review.
+This matches the video.publish scope requested at login. brand_content_toggle
+and brand_organic_toggle are required for DIRECT_POST and are set to false.
 
 Requires an active TikTok session (see /api/auth/tiktok/login) and the
 shared admin password (see _lib/webauth.py).
@@ -54,14 +55,25 @@ def post_to_tiktok():
         "post_info": {
             "title": caption[:90],
             "description": caption[:4000],
+            # Unaudited/Sandbox clients can only post privately, and SELF_ONLY
+            # is always an allowed option, so we don't need to query
+            # creator_info to pick a valid privacy_level. Once the app is
+            # audited and you want public posts, call
+            # /v2/post/publish/creator_info/query/ and let the user choose from
+            # the returned privacy_level_options instead of hard-coding this.
+            "privacy_level": "SELF_ONLY",
             "disable_comment": False,
+            # Both brand toggles are REQUIRED for DIRECT_POST (the booleans must
+            # be present). False = not a paid partnership and not self-promotion.
+            "brand_content_toggle": False,
+            "brand_organic_toggle": False,
         },
         "source_info": {
             "source": "PULL_FROM_URL",
             "photo_cover_index": 0,
             "photo_images": [proxied_photo_url],
         },
-        "post_mode": "MEDIA_UPLOAD",
+        "post_mode": "DIRECT_POST",
         "media_type": "PHOTO",
     }
 
@@ -86,11 +98,12 @@ def post_to_tiktok():
         }), 502
 
     return jsonify({
-        "status": "sent_to_tiktok",
+        "status": "posted_to_tiktok",
         "publish_id": (body.get("data") or {}).get("publish_id"),
         "note": (
-            "Sent to TikTok. Until this app is approved for direct posting, "
-            "it lands in the account's TikTok inbox/drafts to review and "
-            "finish publishing from the TikTok app."
+            "Posted directly to TikTok with private (Only you) visibility. "
+            "Unaudited apps can only post privately — pass TikTok's app review "
+            "to enable public posts. You can confirm processing finished via "
+            "the Get Post Status endpoint with this publish_id."
         ),
     })

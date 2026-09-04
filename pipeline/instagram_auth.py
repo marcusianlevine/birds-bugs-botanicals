@@ -71,6 +71,28 @@ def _update_env(key: str, value: str) -> None:
     print(f"  ✓ Saved {key} to .env")
 
 
+def _persist_token(key: str, value: str) -> None:
+    """
+    Save a refreshed token.
+
+    Locally: write it back to .env. Under GitHub Actions (no .env): mask it in
+    the log and expose it as the `access_token` step output. The workflow feeds
+    that output into the current run's pipeline step (as a step-level env
+    override, which beats the job-level secret) and persists it for future runs
+    with `gh secret set`.
+    """
+    if os.getenv("GITHUB_ACTIONS") != "true":
+        _update_env(key, value)
+        return
+
+    print(f"::add-mask::{value}")
+    gh_output = os.getenv("GITHUB_OUTPUT")
+    if gh_output:
+        with open(gh_output, "a", encoding="utf-8") as f:
+            f.write(f"access_token={value}\n")
+    print(f"  ✓ Emitted {key} as the 'access_token' step output")
+
+
 def _check_response(resp: requests.Response) -> dict:
     try:
         resp.raise_for_status()
@@ -145,7 +167,7 @@ def refresh_token() -> None:
     expiry_str = _expiry_message(expires_in)
 
     print(f"Token refreshed! New expiry: {expiry_str}")
-    _update_env("INSTAGRAM_ACCESS_TOKEN", new_token)
+    _persist_token("INSTAGRAM_ACCESS_TOKEN", new_token)
     print(f"\n⚠  Set a calendar reminder to run `make auth-instagram-refresh` before {expiry_str}")
 
 
