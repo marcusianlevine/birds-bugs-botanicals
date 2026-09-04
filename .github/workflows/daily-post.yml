@@ -62,18 +62,6 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Refresh Instagram long-lived token
-        id: ig
-        continue-on-error: true
-        run: uv run python instagram_auth.py --refresh
-
-      - name: Push refreshed token to repo secrets
-        if: steps.ig.outputs.access_token != ''
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-          GH_REPO: ${{ github.repository }}
-        run: gh secret set INSTAGRAM_ACCESS_TOKEN --body "${{ steps.ig.outputs.access_token }}"
-
       - name: Build pipeline args
         id: args
         run: |
@@ -88,10 +76,10 @@ jobs:
           echo "value=$args" >> "$GITHUB_OUTPUT"
 
       - name: Run pipeline
-        env:
-          # Use the token just refreshed this run; fall back to the stored
-          # secret if the refresh step failed (continue-on-error above).
-          INSTAGRAM_ACCESS_TOKEN: ${{ steps.ig.outputs.access_token || secrets.INSTAGRAM_ACCESS_TOKEN }}
+        # INSTAGRAM_ACCESS_TOKEN comes from the job-level env (the stored
+        # secret). A long-lived token is valid for 60 days; the maintenance
+        # step further down keeps that window from lapsing. Posting no longer
+        # depends on a live OAuth refresh call succeeding first.
         run: uv run python main.py ${{ steps.args.outputs.value }}
 
       - name: Commit updated pipeline state
@@ -102,11 +90,55 @@ jobs:
           git add data/posted_history.json data/rejected_species.json data/species_pools.json
           if git diff --cached --quiet; then
             echo "No state changes to commit."
-          else
-            git commit -m "chore: update pipeline state [skip ci]"
-            git pull --rebase --autostash origin ${{ github.ref_name }}
-            git push
+            exit 0
           fi
+          git commit -m "chore: update pipeline state [skip ci]"
+
+          # The post already went out by now, so losing this commit means the
+          # next run works from stale state (and can re-post a species). Retry
+          # the rebase-onto-remote + push a few times to ride out a concurrent
+          # push landing in the gap between pull and push.
+          branch="${{ github.ref_name }}"
+          for attempt in 1 2 3 4 5; do
+            if ! git pull --rebase --autostash origin "$branch"; then
+              git rebase --abort 2>/dev/null || true
+              echo "Rebase failed on attempt $attempt; retrying in 10s..."
+              sleep 10
+              continue
+            fi
+            if git push origin "HEAD:$branch"; then
+              echo "State committed and pushed (attempt $attempt)."
+              exit 0
+            fi
+            echo "Push attempt $attempt failed (likely a concurrent push); retrying in 10s..."
+            sleep 10
+          done
+
+          echo "::error::Could not push updated pipeline state after 5 attempts."
+          exit 1
+
+      - name: Refresh + persist Instagram token (maintenance)
+        # Token upkeep, deliberately run *after* the post. The stored secret is
+        # a valid 60-day token that the run above already posted with; this only
+        # extends the window. --min-days-left 14 makes it a no-op (no OAuth call,
+        # no `gh secret set`) until the token is within two weeks of expiring, so
+        # repo secrets are touched ~monthly and a failure here is a rare, visible
+        # event rather than a daily one that's silently masked.
+        id: ig_refresh
+        if: ${{ inputs.dry_run != true }}
+        continue-on-error: true
+        run: uv run python instagram_auth.py --refresh --min-days-left 14
+
+      - name: Push refreshed token to repo secrets
+        # Only runs on the ~monthly occasions the step above actually refreshed.
+        # Intentionally NOT continue-on-error: if a new token was minted but we
+        # can't persist it, that should fail loudly.
+        if: ${{ steps.ig_refresh.outputs.access_token != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_REPO: ${{ github.repository }}
+          NEW_TOKEN: ${{ steps.ig_refresh.outputs.access_token }}
+        run: gh secret set INSTAGRAM_ACCESS_TOKEN --body "$NEW_TOKEN"
 
       - name: Upload run outputs
         if: always()

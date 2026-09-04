@@ -34,7 +34,7 @@ import argparse
 import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import requests
@@ -105,8 +105,38 @@ def _check_response(resp: requests.Response) -> dict:
     return body
 
 
+def _debug_token(token: str) -> dict:
+    """
+    Return Meta's ``debug_token`` ``data`` payload for *token* (holds
+    ``expires_at``, ``scopes``, …), or an empty dict when the app credentials
+    needed to call the endpoint are missing.
+    """
+    app_id     = os.getenv("INSTAGRAM_APP_ID", "")
+    app_secret = os.getenv("INSTAGRAM_APP_SECRET", "")
+    if not (app_id and app_secret):
+        return {}
+    resp = requests.get(
+        f"{GRAPH_BASE}/debug_token",
+        params={
+            "input_token":  token,
+            "access_token": f"{app_id}|{app_secret}",
+        },
+        timeout=15,
+    )
+    return _check_response(resp).get("data", {})
+
+
+def _token_days_left(token: str) -> int | None:
+    """Whole days until *token* expires, or None if that can't be determined."""
+    exp_at = _debug_token(token).get("expires_at", 0)
+    if not exp_at:
+        return None
+    expiry = datetime.fromtimestamp(exp_at, tz=UTC)
+    return (expiry - datetime.now(tz=UTC)).days
+
+
 def _expiry_message(expires_in_seconds: int) -> str:
-    expiry = datetime.now(tz=timezone.utc) + timedelta(seconds=expires_in_seconds)
+    expiry = datetime.now(tz=UTC) + timedelta(seconds=expires_in_seconds)
     return expiry.strftime("%Y-%m-%d %H:%M UTC")
 
 
@@ -143,11 +173,33 @@ def exchange_token(short_lived_token: str) -> None:
 
 # ── refresh: extend an existing long-lived token ──────────────────────────────
 
-def refresh_token() -> None:
-    """Refresh the existing long-lived token and save the new one to .env."""
+def refresh_token(min_days_left: int | None = None) -> None:
+    """
+    Refresh the existing long-lived token and save the new one to .env.
+
+    When *min_days_left* is given, first check how much life the current token
+    has and skip the refresh if it still has at least that many days. Meta
+    resets the expiry to ~60 days on every refresh, so refreshing early buys
+    nothing; a daily caller passes e.g. ``--min-days-left 14`` to actually
+    touch the token (and, in CI, ``gh secret set``) only about once a month.
+    If the remaining life can't be determined, the refresh goes ahead.
+    """
     app_id     = _require_env("INSTAGRAM_APP_ID")
     app_secret = _require_env("INSTAGRAM_APP_SECRET")
     token      = _require_env("INSTAGRAM_ACCESS_TOKEN")
+
+    if min_days_left is not None:
+        days_left = _token_days_left(token)
+        if days_left is None:
+            print("Could not determine current token expiry; refreshing anyway.")
+        elif days_left >= min_days_left:
+            print(
+                f"Token still has {days_left} days left "
+                f"(threshold {min_days_left}); nothing to do."
+            )
+            return
+        else:
+            print(f"Token has only {days_left} days left; refreshing now.")
 
     print("Refreshing long-lived Instagram token...")
     resp = requests.get(
@@ -185,29 +237,18 @@ def verify_token() -> None:
     body = _check_response(resp)
     print(f"Token is valid. Facebook user: {body.get('name')} (id={body.get('id')})")
 
-    # Check token debug info
-    app_id     = os.getenv("INSTAGRAM_APP_ID", "")
-    app_secret = os.getenv("INSTAGRAM_APP_SECRET", "")
-    if app_id and app_secret:
-        debug_resp = requests.get(
-            f"{GRAPH_BASE}/debug_token",
-            params={
-                "input_token":  token,
-                "access_token": f"{app_id}|{app_secret}",
-            },
-            timeout=15,
-        )
-        debug_body = _check_response(debug_resp).get("data", {})
-        exp_at = debug_body.get("expires_at", 0)
-        if exp_at:
-            expiry = datetime.fromtimestamp(exp_at, tz=timezone.utc)
-            days_left = (expiry - datetime.now(tz=timezone.utc)).days
-            print(f"Token expires: {expiry.strftime('%Y-%m-%d')} ({days_left} days remaining)")
-            if days_left < 10:
-                print("⚠  Token expires soon — run `make auth-instagram-refresh` now!")
-        scopes = debug_body.get("scopes", [])
-        if scopes:
-            print(f"Granted scopes: {', '.join(scopes)}")
+    # Check token debug info (expiry, scopes)
+    debug_body = _debug_token(token)
+    exp_at = debug_body.get("expires_at", 0)
+    if exp_at:
+        expiry = datetime.fromtimestamp(exp_at, tz=UTC)
+        days_left = (expiry - datetime.now(tz=UTC)).days
+        print(f"Token expires: {expiry.strftime('%Y-%m-%d')} ({days_left} days remaining)")
+        if days_left < 10:
+            print("⚠  Token expires soon — run `make auth-instagram-refresh` now!")
+    scopes = debug_body.get("scopes", [])
+    if scopes:
+        print(f"Granted scopes: {', '.join(scopes)}")
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
@@ -234,6 +275,14 @@ def main() -> None:
         action="store_true",
         help="Verify the current token and print expiry info",
     )
+    parser.add_argument(
+        "--min-days-left",
+        type=int,
+        metavar="DAYS",
+        default=None,
+        help="With --refresh: skip the refresh unless the current token expires "
+             "within DAYS days (default: refresh unconditionally).",
+    )
     args = parser.parse_args()
 
     if args.exchange is not None:
@@ -247,7 +296,7 @@ def main() -> None:
         exchange_token(token)
 
     elif args.refresh:
-        refresh_token()
+        refresh_token(min_days_left=args.min_days_left)
 
     elif args.verify:
         verify_token()
