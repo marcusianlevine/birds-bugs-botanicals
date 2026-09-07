@@ -102,6 +102,10 @@ def _build_instagram_prompt(r: ResearchResult, required_tags: list[str]) -> str:
     facts_lines = "\n".join(f"- {f}" for f in r.fun_facts[:4]) if r.fun_facts else ""
     facts_block = ("Fun facts:\n" + facts_lines) if facts_lines else ""
     uses_block = ("\nUSES / MEDICINAL:\n" + r.uses_section[:600]) if r.uses_section else ""
+    impact_block = (
+        "\nSTATUS / ECOLOGICAL IMPACT (address this honestly if it is significant):\n"
+        + r.impact_section[:700]
+    ) if r.impact_section else ""
     conservation = ("\nConservation status: " + r.conservation_status) if r.conservation_status else ""
     range_info = ("\nRange: " + r.range_description) if r.range_description else ""
     tag_hint = " ".join(required_tags)
@@ -109,12 +113,29 @@ def _build_instagram_prompt(r: ResearchResult, required_tags: list[str]) -> str:
     return f"""You are the social media writer for "Birds, Bugs & Botanicals" – a nature account
 that posts daily facts about wildlife and plants. The content is factual, engaging, playful,
 and inspires people to spend time in nature. Captions feel warm and wonder-filled, not academic.
+The audience is global. Being honest about harm, invasiveness, or decline is part of inspiring
+care for nature – never soften or omit it just to keep a post upbeat.
 
 Write an Instagram caption for today's feature organism. Requirements:
 • Open with an attention-grabbing first line (no emojis to start, just a punchy sentence)
 • 3-5 short paragraphs totalling 180-280 words
+• When the species has a real conservation concern or a notable effect on people and
+  ecosystems, give one of those paragraphs to it — what the status is, why it matters, and
+  what a reader can do. If there is nothing significant to say, skip it; don't manufacture
+  filler.
+• If this organism is invasive or introduced outside its native range, harmful, toxic, or
+  its wild population is in trouble, that paragraph is REQUIRED and you MUST: name the
+  specific regions where it is invasive or a problem (and where it is native, when the
+  contrast helps), say why it matters there, and give one concrete action tied to those
+  regions (report sightings to the local agriculture or wildlife authority, don't move
+  firewood, never plant or release it, leave it undisturbed, etc.). Stay caring and
+  matter-of-fact, not preachy or alarmist.
 • Weave in 2-3 of the fun facts naturally – don't just list them
-• End with a call to action (e.g., "Have you spotted one? Tell us below 👇")
+• Choose the closing call to action to fit the species' status: for a harmless native,
+  invite sightings (e.g. "Spotted one? Tell us below 👇"); for a species that is invasive
+  in only some regions, address the reader conditionally by location (e.g. "If you're in
+  [region] and spot one, report it to [authority]"); for a broadly harmful species, steer
+  everyone toward reporting or control instead of admiration
 • Close with 20-25 relevant hashtags on a separate line
 • You MUST include ALL of these required tags in your hashtag block: {tag_hint}
 • You may add further relevant species-specific tags alongside them
@@ -125,7 +146,7 @@ TODAY'S ORGANISM:
   Scientific name: {r.scientific_name or "unknown"}
   Category: {r.category}
   Wikipedia summary: {r.wikipedia_summary[:800]}
-{facts_block}{uses_block}{conservation}{range_info}
+{facts_block}{uses_block}{impact_block}{conservation}{range_info}
 
 Output ONLY the caption text (no explanations, no "Here's your caption:" preamble).
 """
@@ -135,23 +156,31 @@ def _build_tiktok_prompt(r: ResearchResult, required_tags: list[str]) -> str:
     facts_lines = "\n".join(f"- {f}" for f in r.fun_facts[:3]) if r.fun_facts else ""
     facts_block = ("Fun facts:\n" + facts_lines) if facts_lines else ""
     uses_block = ("\nUSES:\n" + r.uses_section[:400]) if r.uses_section else ""
+    impact_block = (
+        "\nSTATUS / ECOLOGICAL IMPACT (reflect this if it is significant):\n"
+        + r.impact_section[:500]
+    ) if r.impact_section else ""
     tag_hint = " ".join(required_tags)
 
     return f"""You are writing for "Birds, Bugs & Botanicals" on TikTok. The account posts
 short, soothing nature videos with a voiceover narration. Videos are 5-10 seconds of
-animated footage, so the script must be SHORT and punchy.
+animated footage, so the script must be SHORT and punchy. The audience is global.
 
 Write TWO things:
 
 1. VOICEOVER SCRIPT (max 4 sentences, ~45 words total):
    - Opens mid-action, as if the viewer just stumbled upon this creature or plant
    - Uses "you" language to pull the viewer in
-   - Ends with one astonishing fact
+   - Ends with one astonishing fact – or, if this species is invasive, harmful, or
+     threatened, end on that instead: name where it's a problem and what it means
    - Warm, gentle tone – like a knowledgeable friend, not a textbook
 
 2. TIKTOK CAPTION (max 60 words + hashtags):
    - Punchy first line
    - 1-2 follow-up sentences
+   - If this species is invasive, harmful, or in trouble, say so honestly in one of them,
+     name the regions it affects, and give a concrete action for people there (report it,
+     don't move firewood, never plant or release it, leave it be) – caring, not alarmist
    - 10-15 hashtags
    - You MUST include ALL of these required tags: {tag_hint}
 
@@ -160,7 +189,7 @@ TODAY'S ORGANISM:
   Scientific name: {r.scientific_name or "unknown"}
   Category: {r.category}
   Summary: {r.wikipedia_summary[:500]}
-{facts_block}{uses_block}
+{facts_block}{uses_block}{impact_block}
 
 Format your response exactly like this (use these exact headers):
 VOICEOVER:

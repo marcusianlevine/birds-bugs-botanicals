@@ -46,6 +46,7 @@ class ResearchResult:
     wikipedia_summary: str = ""
     wikipedia_url: str = ""
     uses_section: str = ""          # botanical only
+    impact_section: str = ""        # invasiveness / ecological impact / threats, if any
     fun_facts: list[str] = field(default_factory=list)
     photos: list[Photo] = field(default_factory=list)
     range_description: str = ""     # where it's found
@@ -58,7 +59,8 @@ class ResearchResult:
 def _get_wikipedia(common_name: str, category: str) -> dict:
     """
     Fetch Wikipedia page data. Returns dict with:
-      summary, url, uses_section, scientific_name, conservation_status
+      summary, url, uses_section, impact_section, scientific_name,
+      conservation_status, fun_facts, image_url, thumb_url, image_credit
     """
     wiki = wikipediaapi.Wikipedia(
         language="en",
@@ -78,13 +80,21 @@ def _get_wikipedia(common_name: str, category: str) -> dict:
         return {}
 
     # Extract "Uses" / "Uses and applications" section for botanicals
-    uses_text = ""
-    for section_name in ("Uses", "Uses and applications", "Medical uses",
-                         "Traditional uses", "Culinary uses", "Medicinal uses"):
-        section = page.section_by_title(section_name)
-        if section and section.text.strip():
-            uses_text = section.text.strip()
-            break
+    uses_text = _first_section_text(page, (
+        "Uses", "Uses and applications", "Medical uses",
+        "Traditional uses", "Culinary uses", "Medicinal uses",
+    ))
+
+    # Invasiveness / ecological impact / threats-to-the-species. Surfaced so a
+    # caption can deal honestly with, e.g., an invasive pest instead of only
+    # celebrating it. Deliberately narrow: only headings that signal a genuine
+    # problem, so impact_section stays empty for an unremarkable native rather
+    # than filling with ordinary range/ecology prose the model might misread.
+    impact_text = _first_section_text(page, (
+        "Invasive species", "As an invasive species", "Invasiveness",
+        "Invasive potential", "Introduced species", "Ecological impact",
+        "Environmental impact", "Impact", "Threats",
+    ))
 
     # Try to extract scientific name from intro text
     sci_name = _extract_scientific_name(page.text)
@@ -103,6 +113,7 @@ def _get_wikipedia(common_name: str, category: str) -> dict:
         "summary": page.summary[:1500],   # first ~1500 chars
         "url": page.fullurl,
         "uses_section": uses_text,
+        "impact_section": impact_text,
         "scientific_name": sci_name,
         "conservation_status": conservation,
         "fun_facts": fun_facts,
@@ -218,6 +229,19 @@ def _wikimedia_image_credit(original_url: str) -> str:
     if artist:
         return f"{artist} / Wikimedia Commons"
     return fallback
+
+
+def _first_section_text(page, titles) -> str:
+    """
+    Return the stripped text of the first section on *page* whose title matches
+    one of *titles* (in order), or "" if none is present. *page* is anything
+    with a ``section_by_title`` method (a wikipediaapi page, or a test stand-in).
+    """
+    for title in titles:
+        section = page.section_by_title(title)
+        if section and section.text.strip():
+            return section.text.strip()
+    return ""
 
 
 def _extract_scientific_name(text: str) -> str:
@@ -503,6 +527,7 @@ def research(category: str, common_name: str) -> ResearchResult | None:
         wikipedia_summary=wiki_data.get("summary", ""),
         wikipedia_url=wiki_data.get("url", ""),
         uses_section=wiki_data.get("uses_section", ""),
+        impact_section=wiki_data.get("impact_section", ""),
         fun_facts=wiki_data.get("fun_facts", []),
         photos=photos,
         range_description=inat_data.get("range_description", ""),
