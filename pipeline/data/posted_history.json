@@ -43,5 +43,10 @@
       "date": "2026-09-07"
     }
   ],
-  "botanical": []
+  "botanical": [
+    {
+      "name": "Chamomile",
+      "date": "2026-09-10"
+    }
+  ]
 }
