@@ -10,6 +10,7 @@ Sources:
 import html
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from urllib.parse import unquote
 
@@ -67,60 +68,85 @@ def _get_wikipedia(common_name: str, category: str) -> dict:
         user_agent=WIKI_USER_AGENT
     )
 
-    page = wiki.page(common_name)
-    if not page.exists():
-        # Try appending the category as disambiguation
-        for suffix in [f" ({category})", " (plant)", " (insect)", " (bird)"]:
-            page = wiki.page(common_name + suffix)
-            if page.exists():
-                break
+    # wikipediaapi does its own HTTP + JSON handling internally and can raise
+    # almost anything (KeyError, httpx errors, ...) on a transient upstream
+    # hiccup - e.g. a malformed/error response missing "query" despite a 200.
+    # Retried a couple of times (short backoff - this is "ask again and it
+    # works", not a real outage) before giving up like the other best-effort
+    # sources below.
+    max_attempts = 3  # initial attempt + 2 retries
+    backoff_base = 0.5  # seconds
 
-    if not page.exists():
-        log.warning("Wikipedia page not found for: %s", common_name)
-        return {}
+    for attempt in range(1, max_attempts + 1):
+        try:
+            page = wiki.page(common_name)
+            if not page.exists():
+                # Try appending the category as disambiguation
+                for suffix in [f" ({category})", " (plant)", " (insect)", " (bird)"]:
+                    page = wiki.page(common_name + suffix)
+                    if page.exists():
+                        break
 
-    # Extract "Uses" / "Uses and applications" section for botanicals
-    uses_text = _first_section_text(page, (
-        "Uses", "Uses and applications", "Medical uses",
-        "Traditional uses", "Culinary uses", "Medicinal uses",
-    ))
+            if not page.exists():
+                log.warning("Wikipedia page not found for: %s", common_name)
+                return {}
 
-    # Invasiveness / ecological impact / threats-to-the-species. Surfaced so a
-    # caption can deal honestly with, e.g., an invasive pest instead of only
-    # celebrating it. Deliberately narrow: only headings that signal a genuine
-    # problem, so impact_section stays empty for an unremarkable native rather
-    # than filling with ordinary range/ecology prose the model might misread.
-    impact_text = _first_section_text(page, (
-        "Invasive species", "As an invasive species", "Invasiveness",
-        "Invasive potential", "Introduced species", "Ecological impact",
-        "Environmental impact", "Impact", "Threats",
-    ))
+            # Extract "Uses" / "Uses and applications" section for botanicals
+            uses_text = _first_section_text(page, (
+                "Uses", "Uses and applications", "Medical uses",
+                "Traditional uses", "Culinary uses", "Medicinal uses",
+            ))
 
-    # Try to extract scientific name from intro text
-    sci_name = _extract_scientific_name(page.text)
+            # Invasiveness / ecological impact / threats-to-the-species. Surfaced
+            # so a caption can deal honestly with, e.g., an invasive pest instead
+            # of only celebrating it. Deliberately narrow: only headings that
+            # signal a genuine problem, so impact_section stays empty for an
+            # unremarkable native rather than filling with ordinary range/ecology
+            # prose the model might misread.
+            impact_text = _first_section_text(page, (
+                "Invasive species", "As an invasive species", "Invasiveness",
+                "Invasive potential", "Introduced species", "Ecological impact",
+                "Environmental impact", "Impact", "Threats",
+            ))
 
-    # Conservation status
-    conservation = _extract_conservation_status(page.text)
+            # Try to extract scientific name from intro text
+            sci_name = _extract_scientific_name(page.text)
 
-    # Pull a few interesting sentences from non-lead sections for fun facts
-    fun_facts = _extract_fun_facts(page)
+            # Conservation status
+            conservation = _extract_conservation_status(page.text)
 
-    # Lead image (the reviewer tries this before other databases)
-    image_url, thumb_url = _get_wikipedia_image(page.title)
-    image_credit = _wikimedia_image_credit(image_url) if image_url else ""
+            # Pull a few interesting sentences from non-lead sections for fun facts
+            fun_facts = _extract_fun_facts(page)
 
-    return {
-        "summary": page.summary[:1500],   # first ~1500 chars
-        "url": page.fullurl,
-        "uses_section": uses_text,
-        "impact_section": impact_text,
-        "scientific_name": sci_name,
-        "conservation_status": conservation,
-        "fun_facts": fun_facts,
-        "image_url": image_url,
-        "thumb_url": thumb_url,
-        "image_credit": image_credit,
-    }
+            # Lead image (the reviewer tries this before other databases)
+            image_url, thumb_url = _get_wikipedia_image(page.title)
+            image_credit = _wikimedia_image_credit(image_url) if image_url else ""
+
+            return {
+                "summary": page.summary[:1500],   # first ~1500 chars
+                "url": page.fullurl,
+                "uses_section": uses_text,
+                "impact_section": impact_text,
+                "scientific_name": sci_name,
+                "conservation_status": conservation,
+                "fun_facts": fun_facts,
+                "image_url": image_url,
+                "thumb_url": thumb_url,
+                "image_credit": image_credit,
+            }
+        except Exception as e:
+            if attempt == max_attempts:
+                log.warning(
+                    "Wikipedia lookup failed for '%s' after %d attempts: %s",
+                    common_name, max_attempts, e,
+                )
+                return {}
+            delay = backoff_base * (2 ** (attempt - 1))
+            log.warning(
+                "Wikipedia lookup attempt %d/%d failed for '%s' (%s). Retrying in %.1fs…",
+                attempt, max_attempts, common_name, e, delay,
+            )
+            time.sleep(delay)
 
 
 def _get_wikipedia_image(title: str) -> tuple[str, str]:
