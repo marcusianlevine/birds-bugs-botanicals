@@ -15,6 +15,34 @@
     {
       "name": "Purple Martin",
       "date": "2026-09-05"
+    },
+    {
+      "name": "Flamingo",
+      "date": "2026-09-08"
+    },
+    {
+      "name": "Blue-footed Booby",
+      "date": "2026-09-09"
+    },
+    {
+      "name": "Indigo Bunting",
+      "date": "2026-09-13"
+    },
+    {
+      "name": "Cedar Waxwing",
+      "date": "2026-09-14"
+    },
+    {
+      "name": "White-throated Magpie-Jay",
+      "date": "2026-09-19"
+    },
+    {
+      "name": "Wood Duck",
+      "date": "2026-09-20"
+    },
+    {
+      "name": "Black-throated Blue Warbler",
+      "date": "2026-09-21"
     }
   ],
   "bug": [
@@ -29,7 +57,44 @@
     {
       "name": "Lanternfly",
       "date": "2026-09-06"
+    },
+    {
+      "name": "Harlequin Bug",
+      "date": "2026-09-07"
+    },
+    {
+      "name": "Eastern Pondhawk",
+      "date": "2026-09-12"
+    },
+    {
+      "name": "Treehopper",
+      "date": "2026-09-15"
+    },
+    {
+      "name": "Blue Morpho Butterfly",
+      "date": "2026-09-16"
+    },
+    {
+      "name": "Hummingbird Hawk-moth",
+      "date": "2026-09-17"
+    },
+    {
+      "name": "Firefly",
+      "date": "2026-09-18"
     }
   ],
-  "botanical": []
+  "botanical": [
+    {
+      "name": "Chamomile",
+      "date": "2026-09-10"
+    },
+    {
+      "name": "Echinacea",
+      "date": "2026-09-11"
+    },
+    {
+      "name": "Rhodiola",
+      "date": "2026-09-22"
+    }
+  ]
 }
